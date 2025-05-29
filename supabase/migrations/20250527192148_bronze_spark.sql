@@ -25,7 +25,6 @@
 
 CREATE TABLE IF NOT EXISTS profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id),
-  name text,
   email text,
   avatar_url text,
   bio text,
@@ -35,7 +34,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   badges jsonb[] DEFAULT ARRAY[]::jsonb[],
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
-  full_name text
+  full_name text,
+  github_username text
 );
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -69,9 +69,3 @@ CREATE TRIGGER update_profiles_updated_at
   ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
-
--- Add full_name column to profiles table
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS full_name text;
-
--- Update existing rows to set full_name equal to name
-UPDATE profiles SET full_name = name WHERE full_name IS NULL;

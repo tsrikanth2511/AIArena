@@ -5,6 +5,7 @@ export interface User {
   avatar: string;
   bio?: string;
   githubUrl?: string;
+  githubUsername?: string;
   portfolioUrl?: string;
   careerScore: number;
   badges: Badge[];

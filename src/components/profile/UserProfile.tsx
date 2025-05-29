@@ -4,6 +4,7 @@ import { User, Mail, Github, Globe, Award, ArrowUpRight } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { useAuthStore } from '../../store/authStore';
+import toast from 'react-hot-toast';
 
 const UserProfile = () => {
   const { user, updateProfile } = useAuthStore();
@@ -56,12 +57,15 @@ const UserProfile = () => {
       bio: formData.get('bio') as string,
       githubUrl: formData.get('github') as string,
       portfolioUrl: formData.get('portfolio') as string,
+      githubUsername: user?.githubUsername || '',
     };
 
     try {
       await updateProfile(profileData);
+      toast.success('Profile updated successfully!');
     } catch (error: any) {
       setError(error.message || 'Failed to update profile');
+      toast.error(error.message || 'Failed to update profile');
     } finally {
       setIsLoading(false);
     }
