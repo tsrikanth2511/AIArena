@@ -14,6 +14,7 @@
       - `badges` (jsonb array)
       - `created_at` (timestamp with time zone)
       - `updated_at` (timestamp with time zone)
+      - `full_name` (text)
 
   2. Security
     - Enable RLS on `profiles` table
@@ -33,17 +34,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   career_score integer DEFAULT 0,
   badges jsonb[] DEFAULT ARRAY[]::jsonb[],
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  full_name text
 );
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-
--- Add policy to allow users to insert their own profile
-CREATE POLICY "Users can insert own profile"
-  ON profiles
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = id);
 
 -- Create policies
 CREATE POLICY "Users can read own profile"
@@ -74,3 +69,9 @@ CREATE TRIGGER update_profiles_updated_at
   ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Add full_name column to profiles table
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS full_name text;
+
+-- Update existing rows to set full_name equal to name
+UPDATE profiles SET full_name = name WHERE full_name IS NULL;

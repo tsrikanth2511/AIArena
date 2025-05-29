@@ -29,6 +29,7 @@ const AuthCallbackPage = () => {
                 {
                   id: session.user.id,
                   name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
+                  full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0],
                   email: session.user.email,
                   avatar_url: session.user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${session.user.user_metadata?.name || session.user.email?.split('@')[0]}`,
                   career_score: 0,

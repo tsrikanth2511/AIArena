@@ -154,6 +154,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             {
               id: data.user.id,
               name,
+              full_name: name,
               email,
               avatar_url: `https://ui-avatars.com/api/?name=${name}`,
               career_score: 0,
@@ -203,6 +204,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         .from('profiles')
         .update({
           name: profileData.name,
+          full_name: profileData.name,
           bio: profileData.bio,
           github_url: profileData.githubUrl,
           portfolio_url: profileData.portfolioUrl,
