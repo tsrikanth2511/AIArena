@@ -6,8 +6,10 @@ import Badge from '../ui/Badge';
 import { useAuthStore } from '../../store/authStore';
 
 const UserProfile = () => {
-  const { user } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
   const [activeTab, setActiveTab] = useState('submissions');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   if (!user) {
     return (
@@ -42,6 +44,28 @@ const UserProfile = () => {
       status: 'Scored'
     }
   ];
+
+  const handleProfileUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const profileData = {
+      name: formData.get('name') as string,
+      bio: formData.get('bio') as string,
+      githubUrl: formData.get('github') as string,
+      portfolioUrl: formData.get('portfolio') as string,
+    };
+
+    try {
+      await updateProfile(profileData);
+    } catch (error: any) {
+      setError(error.message || 'Failed to update profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -219,12 +243,18 @@ const UserProfile = () => {
         {activeTab === 'settings' && (
           <div>
             <h2 className="text-lg font-medium text-gray-900 mb-4">Profile Settings</h2>
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleProfileUpdate}>
+              {error && (
+                <div className="bg-error-50 border border-error-200 text-error-700 px-4 py-3 rounded">
+                  {error}
+                </div>
+              )}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
                 <input
                   type="text"
                   id="name"
+                  name="name"
                   defaultValue={user.name}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
                 />
@@ -234,6 +264,7 @@ const UserProfile = () => {
                 <label htmlFor="bio" className="block text-sm font-medium text-gray-700">Bio</label>
                 <textarea
                   id="bio"
+                  name="bio"
                   rows={3}
                   defaultValue={user.bio}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
@@ -246,6 +277,7 @@ const UserProfile = () => {
                   <input
                     type="url"
                     id="github"
+                    name="github"
                     defaultValue={user.githubUrl}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
                   />
@@ -256,6 +288,7 @@ const UserProfile = () => {
                   <input
                     type="url"
                     id="portfolio"
+                    name="portfolio"
                     defaultValue={user.portfolioUrl}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
                   />
@@ -263,7 +296,7 @@ const UserProfile = () => {
               </div>
               
               <div className="flex justify-end">
-                <Button type="submit">
+                <Button type="submit" isLoading={isLoading}>
                   Save Changes
                 </Button>
               </div>

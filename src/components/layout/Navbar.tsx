@@ -34,6 +34,7 @@ const Navbar = () => {
     try {
       await logout();
       setIsProfileOpen(false);
+      window.location.href = '/';
     } catch (error) {
       console.error('Logout failed:', error);
     }

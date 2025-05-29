@@ -8,22 +8,43 @@ const AuthCallbackPage = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Get the session after OAuth redirect
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error('Auth callback error:', error);
-          navigate('/login', { replace: true });
-          return;
+        if (sessionError) throw sessionError;
+
+        if (session?.user) {
+          // Check if profile exists
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          // Create profile if it doesn't exist
+          if (!existingProfile) {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: session.user.id,
+                  name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
+                  email: session.user.email,
+                  avatar_url: session.user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${session.user.user_metadata?.name || session.user.email?.split('@')[0]}`,
+                  career_score: 0,
+                  badges: [],
+                },
+              ]);
+
+            if (profileError) throw profileError;
+          }
         }
 
-        if (session) {
-          navigate('/', { replace: true });
-        } else {
-          navigate('/login', { replace: true });
-        }
+        // Redirect to challenges page
+        navigate('/challenges');
       } catch (error) {
-        console.error('Error handling auth callback:', error);
-        navigate('/login', { replace: true });
+        console.error('Error in auth callback:', error);
+        navigate('/login');
       }
     };
 
@@ -33,11 +54,12 @@ const AuthCallbackPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Completing authentication...</p>
+        <h2 className="text-2xl font-semibold text-gray-900">Completing registration...</h2>
+        <p className="mt-2 text-gray-600">Please wait while we set up your account.</p>
       </div>
     </div>
   );
 };
 
 export default AuthCallbackPage;
+

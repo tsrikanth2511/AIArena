@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import { useChallengeStore } from './store/challengeStore';
-
 function App() {
   const { fetchChallenges } = useChallengeStore();
 

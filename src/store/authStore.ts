@@ -15,6 +15,12 @@ interface AuthState {
   registerWithGithub: () => Promise<void>;
   registerWithGoogle: () => Promise<void>;
   clearError: () => void;
+  updateProfile: (profileData: {
+    name: string;
+    bio: string;
+    githubUrl: string;
+    portfolioUrl: string;
+  }) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -185,6 +191,42 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   registerWithGoogle: async () => {
     await useAuthStore.getState().loginWithGoogle();
+  },
+
+  updateProfile: async (profileData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          name: profileData.name,
+          bio: profileData.bio,
+          github_url: profileData.githubUrl,
+          portfolio_url: profileData.portfolioUrl,
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      set((state) => ({
+        user: state.user ? {
+          ...state.user,
+          name: profileData.name,
+          bio: profileData.bio,
+          githubUrl: profileData.githubUrl,
+          portfolioUrl: profileData.portfolioUrl,
+        } : null,
+      }));
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to update profile' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 }));
 
