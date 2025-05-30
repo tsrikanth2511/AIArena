@@ -2,9 +2,11 @@ import { motion } from 'framer-motion';
 import { useChallengeStore } from '../store/challengeStore';
 import ChallengeCard from '../components/challenges/ChallengeCard';
 import ChallengeFilters from '../components/challenges/ChallengeFilters';
+import Button from '../components/ui/Button';
+import { RefreshCw } from 'lucide-react';
 
 const ChallengesPage = () => {
-  const { filteredChallenges, isLoading } = useChallengeStore();
+  const { filteredChallenges, isLoading, error, fetchChallenges } = useChallengeStore();
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -36,7 +38,17 @@ const ChallengesPage = () => {
           </div>
 
           <div className="lg:col-span-3">
-            {isLoading ? (
+            {error ? (
+              <div className="text-center py-8 bg-white rounded-lg shadow">
+                <p className="text-error-600 mb-4">{error}</p>
+                <Button
+                  onClick={() => fetchChallenges()}
+                  leftIcon={<RefreshCw size={16} />}
+                >
+                  Try Again
+                </Button>
+              </div>
+            ) : isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="animate-pulse bg-white rounded-lg shadow h-96">

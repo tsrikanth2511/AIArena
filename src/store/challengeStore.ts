@@ -7,6 +7,7 @@ interface ChallengeState {
   challenges: Challenge[];
   filteredChallenges: Challenge[];
   isLoading: boolean;
+  error: string | null;
   filter: {
     status: string;
     difficulty: string;
@@ -23,6 +24,7 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
   challenges: [],
   filteredChallenges: [],
   isLoading: false,
+  error: null,
   filter: {
     status: '',
     difficulty: '',
@@ -31,7 +33,7 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
   },
   
   fetchChallenges: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const { data: challenges, error } = await supabase
         .from('challenges')
@@ -50,7 +52,7 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
 
       // Update status based on deadline
       const now = new Date();
-      const updatedChallenges = await Promise.all(challenges.map(async (challenge) => {
+      const updatedChallenges = await Promise.all((challenges || []).map(async (challenge) => {
         const deadline = new Date(challenge.deadline);
         let newStatus = challenge.status;
 
@@ -96,12 +98,16 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
       set({
         challenges: updatedChallenges,
         filteredChallenges: updatedChallenges,
-        isLoading: false
+        isLoading: false,
+        error: null
       });
     } catch (error: any) {
       console.error('Error fetching challenges:', error);
+      set({ 
+        error: error.message || 'Failed to load challenges',
+        isLoading: false 
+      });
       toast.error('Failed to load challenges');
-      set({ isLoading: false });
     }
   },
   
