@@ -5,12 +5,13 @@ import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface Challenge {
   id: string;
   title: string;
   description: string;
-  status: 'draft' | 'active' | 'completed';
+  status: 'Active' | 'Upcoming' | 'Completed';
   participants_count: number;
   created_at: string;
 }
@@ -22,25 +23,29 @@ const CompanyDashboardPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user?.role !== 'company') {
+    if (!user || user.role !== 'company') {
       navigate('/');
       return;
     }
     fetchChallenges();
-  }, [user]);
+  }, [user, navigate]);
 
   const fetchChallenges = async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
+        
         .from('challenges')
         .select('*')
-        .eq('company_id', user?.id)
+        .eq('company_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setChallenges(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching challenges:', error);
+      toast.error('Failed to load challenges');
     } finally {
       setIsLoading(false);
     }
@@ -55,7 +60,7 @@ const CompanyDashboardPage = () => {
     },
     {
       title: 'Active Challenges',
-      value: challenges.filter(c => c.status === 'active').length,
+      value: challenges.filter(c => c.status === 'Active').length,
       icon: BarChart,
       color: 'bg-green-500',
     },
@@ -66,6 +71,16 @@ const CompanyDashboardPage = () => {
       color: 'bg-purple-500',
     },
   ];
+
+  if (!user || user.role !== 'company') {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+        <p className="text-gray-600 mb-6">You must be logged in as a company to view this page.</p>
+        <Button onClick={() => navigate('/login')}>Log In</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -129,11 +144,11 @@ const CompanyDashboardPage = () => {
                   </div>
                   <div className="flex items-center space-x-4">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      challenge.status === 'active' ? 'bg-green-100 text-green-800' :
-                      challenge.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                      challenge.status === 'Active' ? 'bg-green-100 text-green-800' :
+                      challenge.status === 'Completed' ? 'bg-gray-100 text-gray-800' :
                       'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
+                      {challenge.status}
                     </span>
                     <Button
                       variant="ghost"
@@ -156,4 +171,4 @@ const CompanyDashboardPage = () => {
   );
 };
 
-export default CompanyDashboardPage; 
+export default CompanyDashboardPage;

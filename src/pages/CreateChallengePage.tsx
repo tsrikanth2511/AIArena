@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, X } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface EvaluationCriterion {
   name: string;
@@ -24,6 +27,8 @@ interface ChallengeForm {
 
 const CreateChallengePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<ChallengeForm>({
     title: '',
     description: '',
@@ -42,8 +47,48 @@ const CreateChallengePage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement challenge creation logic
-    console.log('Form submitted:', formData);
+    if (!user) {
+      toast.error('You must be logged in to create a challenge');
+      return;
+    }
+
+    if (!validateWeights()) {
+      toast.error('Evaluation criteria weights must sum to 100%');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from('challenges')
+        .insert([
+          {
+            title: formData.title,
+            description: formData.description,
+            deadline: formData.deadline,
+            prize_money: parseInt(formData.prizeMoney),
+            difficulty: formData.difficulty,
+            tags: formData.tags,
+            requirements: formData.requirements,
+            evaluation_criteria: formData.evaluationCriteria,
+            company_id: user.id,
+            status: 'Active',
+            participants_count: 0
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Challenge created successfully!');
+      navigate('/company/dashboard');
+    } catch (error: any) {
+      console.error('Error creating challenge:', error);
+      toast.error(error.message || 'Failed to create challenge');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddTag = () => {
@@ -100,10 +145,19 @@ const CreateChallengePage = () => {
     return totalWeight === 100;
   };
 
+  if (!user || user.role !== 'company') {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+        <p className="text-gray-600 mb-6">You must be logged in as a company to create challenges.</p>
+        <Button onClick={() => navigate('/login')}>Log In</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="max-w-4xl mx-auto">
-        {/* Back button */}
         <Button
           variant="ghost"
           onClick={() => navigate('/company/dashboard')}
@@ -124,7 +178,6 @@ const CreateChallengePage = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-6">Create New Challenge</h1>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Information */}
               <div className="space-y-4">
                 <div>
                   <label htmlFor="title" className="block text-sm font-medium text-gray-700">
@@ -394,7 +447,8 @@ const CreateChallengePage = () => {
                 </Button>
                 <Button 
                   type="submit"
-                  disabled={!validateWeights()}
+                  disabled={!validateWeights() || isSubmitting}
+                  isLoading={isSubmitting}
                 >
                   Create Challenge
                 </Button>
@@ -407,4 +461,4 @@ const CreateChallengePage = () => {
   );
 };
 
-export default CreateChallengePage; 
+export default CreateChallengePage;

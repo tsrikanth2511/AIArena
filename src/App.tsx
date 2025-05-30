@@ -3,15 +3,18 @@ import { useEffect } from 'react';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import { useChallengeStore } from './store/challengeStore';
+import { useAuthStore } from './store/authStore';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
   const { fetchChallenges } = useChallengeStore();
+  const { initializeAuth } = useAuthStore();
 
   useEffect(() => {
-    // Fetch initial data when app loads
+    // Initialize auth state and fetch challenges when app loads
+    initializeAuth();
     fetchChallenges();
-  }, [fetchChallenges]);
+  }, [initializeAuth, fetchChallenges]);
 
   return (
     <>
