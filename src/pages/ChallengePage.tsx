@@ -1,33 +1,80 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, Users, DollarSign, ArrowLeft, GanttChartSquare, Upload, BarChart } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Challenge } from '../types';
 import { useChallengeStore } from '../store/challengeStore';
+import { useAuthStore } from '../store/authStore';
 import { formatDate, getDifficultyColor } from '../lib/utils';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const ChallengePage = () => {
   const { id } = useParams<{ id: string }>();
-  const { challenges } = useChallengeStore();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    if (challenges.length > 0 && id) {
-      const foundChallenge = challenges.find(c => c.id === id);
-      setChallenge(foundChallenge || null);
-    }
-    
-    // Simulate API call delay
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [challenges, id]);
+    const fetchChallenge = async () => {
+      if (!id) return;
+      
+      setIsLoading(true);
+      try {
+        const { data: challengeData, error } = await supabase
+          .from('challenges')
+          .select(`
+            *,
+            company:company_id (
+              id,
+              full_name,
+              avatar_url,
+              company_details
+            )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        if (challengeData) {
+          const formattedChallenge: Challenge = {
+            id: challengeData.id,
+            title: challengeData.title,
+            description: challengeData.description,
+            company: {
+              id: challengeData.company.id,
+              name: challengeData.company.full_name || 'Unknown Company',
+              logo: challengeData.company.avatar_url || `https://ui-avatars.com/api/?name=${challengeData.company.full_name}`,
+              description: challengeData.company.company_details?.description,
+              website: challengeData.company.company_details?.website,
+            },
+            deadline: challengeData.deadline,
+            prizeMoney: challengeData.prize_money,
+            difficulty: challengeData.difficulty,
+            tags: challengeData.tags || [],
+            participants: challengeData.participants_count,
+            status: challengeData.status,
+            requirements: challengeData.requirements || [],
+            evaluationCriteria: challengeData.evaluation_criteria as any[] || [],
+          };
+
+          setChallenge(formattedChallenge);
+        }
+      } catch (error) {
+        console.error('Error fetching challenge:', error);
+        toast.error('Failed to load challenge');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChallenge();
+  }, [id]);
 
   if (isLoading) {
     return (
@@ -78,16 +125,19 @@ const ChallengePage = () => {
     (new Date(challenge.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
   );
 
+  const isOwner = user?.id === challenge.company.id;
+  const canSubmit = challenge.status === 'Active' && !isOwner;
+
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="max-w-4xl mx-auto">
         {/* Back button */}
         <Link
-          to="/challenges"
+          to={isOwner ? "/company/dashboard" : "/challenges"}
           className="inline-flex items-center text-sm text-gray-600 hover:text-secondary-600 mb-6"
         >
           <ArrowLeft size={16} className="mr-1" />
-          Back to Challenges
+          Back to {isOwner ? "Dashboard" : "Challenges"}
         </Link>
         
         {/* Challenge header */}
@@ -249,54 +299,76 @@ const ChallengePage = () => {
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="text-center p-8">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">Submit Your Solution</h2>
-                <p className="text-gray-600 mb-6">
-                  Upload your solution including code repository, pitch deck, and demo video
-                </p>
-                
-                <form className="max-w-md mx-auto">
-                  <div className="mb-4">
-                    <label htmlFor="repo-url" className="block text-sm font-medium text-gray-700 mb-1">
-                      GitHub Repository URL (required)
-                    </label>
-                    <input
-                      type="url"
-                      id="repo-url"
-                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-secondary-500 focus:border-secondary-500"
-                      placeholder="https://github.com/username/repo"
-                      required
-                    />
+                {!canSubmit ? (
+                  <div className="py-8">
+                    <p className="text-gray-600 mb-4">
+                      {challenge.status === 'Completed' 
+                        ? 'This challenge has ended and is no longer accepting submissions.'
+                        : challenge.status === 'Upcoming'
+                        ? 'This challenge has not started yet. Please wait until it becomes active.'
+                        : isOwner
+                        ? 'You cannot submit to your own challenge.'
+                        : 'This challenge is not currently accepting submissions.'}
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate('/challenges')}
+                    >
+                      Browse Other Challenges
+                    </Button>
                   </div>
-                  
-                  <div className="mb-4">
-                    <label htmlFor="deck-url" className="block text-sm font-medium text-gray-700 mb-1">
-                      Pitch Deck URL (optional)
-                    </label>
-                    <input
-                      type="url"
-                      id="deck-url"
-                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-secondary-500 focus:border-secondary-500"
-                      placeholder="https://docs.google.com/presentation/d/..."
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Link to your pitch deck (Google Slides, Figma, etc.)</p>
-                  </div>
-                  
-                  <div className="mb-6">
-                    <label htmlFor="video-url" className="block text-sm font-medium text-gray-700 mb-1">
-                      Demo Video URL (optional but recommended)
-                    </label>
-                    <input
-                      type="url"
-                      id="video-url"
-                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-secondary-500 focus:border-secondary-500"
-                      placeholder="https://www.youtube.com/watch?v=..."
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Link to a demo video of your solution (YouTube, Loom, etc.)</p>
-                  </div>
-                  
-                  <Button type="submit" className="w-full" size="lg">
-                    Submit Solution
-                  </Button>
-                </form>
+                ) : (
+                  <>
+                    <p className="text-gray-600 mb-6">
+                      Upload your solution including code repository, pitch deck, and demo video
+                    </p>
+                    
+                    <form className="max-w-md mx-auto">
+                      <div className="mb-4">
+                        <label htmlFor="repo-url" className="block text-sm font-medium text-gray-700 mb-1">
+                          GitHub Repository URL (required)
+                        </label>
+                        <input
+                          type="url"
+                          id="repo-url"
+                          className="w-full border-gray-300 rounded-md shadow-sm focus:ring-secondary-500 focus:border-secondary-500"
+                          placeholder="https://github.com/username/repo"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label htmlFor="deck-url" className="block text-sm font-medium text-gray-700 mb-1">
+                          Pitch Deck URL (optional)
+                        </label>
+                        <input
+                          type="url"
+                          id="deck-url"
+                          className="w-full border-gray-300 rounded-md shadow-sm focus:ring-secondary-500 focus:border-secondary-500"
+                          placeholder="https://docs.google.com/presentation/d/..."
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Link to your pitch deck (Google Slides, Figma, etc.)</p>
+                      </div>
+                      
+                      <div className="mb-6">
+                        <label htmlFor="video-url" className="block text-sm font-medium text-gray-700 mb-1">
+                          Demo Video URL (optional but recommended)
+                        </label>
+                        <input
+                          type="url"
+                          id="video-url"
+                          className="w-full border-gray-300 rounded-md shadow-sm focus:ring-secondary-500 focus:border-secondary-500"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Link to a demo video of your solution (YouTube, Loom, etc.)</p>
+                      </div>
+                      
+                      <Button type="submit" className="w-full" size="lg">
+                        Submit Solution
+                      </Button>
+                    </form>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -400,7 +472,7 @@ const ChallengePage = () => {
         </motion.div>
         
         {/* Call-to-action buttons */}
-        {challenge.status === 'Active' && (
+        {canSubmit && (
           <div className="mt-8 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             <Button
               size="lg"

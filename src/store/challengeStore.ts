@@ -16,6 +16,7 @@ interface ChallengeState {
   fetchChallenges: () => Promise<void>;
   setFilter: (filter: Partial<ChallengeState['filter']>) => void;
   clearFilters: () => void;
+  updateChallengeStatus: (challengeId: string, newStatus: 'Active' | 'Completed' | 'Upcoming') => Promise<void>;
 }
 
 export const useChallengeStore = create<ChallengeState>((set, get) => ({
@@ -45,40 +46,87 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
         `)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      const formattedChallenges: Challenge[] = challenges.map(challenge => ({
-        id: challenge.id,
-        title: challenge.title,
-        description: challenge.description,
-        company: {
-          id: challenge.company.id,
-          name: challenge.company.full_name || 'Unknown Company',
-          logo: challenge.company.avatar_url || `https://ui-avatars.com/api/?name=${challenge.company.full_name}`,
-          description: challenge.company.company_details?.description,
-          website: challenge.company.company_details?.website,
-        },
-        deadline: challenge.deadline,
-        prizeMoney: challenge.prize_money,
-        difficulty: challenge.difficulty,
-        tags: challenge.tags || [],
-        participants: challenge.participants_count,
-        status: challenge.status,
-        requirements: challenge.requirements || [],
-        evaluationCriteria: challenge.evaluation_criteria as any[] || [],
+      // Update status based on deadline
+      const now = new Date();
+      const updatedChallenges = await Promise.all(challenges.map(async (challenge) => {
+        const deadline = new Date(challenge.deadline);
+        let newStatus = challenge.status;
+
+        if (deadline < now && challenge.status !== 'Completed') {
+          newStatus = 'Completed';
+          // Update status in database
+          await supabase
+            .from('challenges')
+            .update({ status: 'Completed' })
+            .eq('id', challenge.id);
+        } else if (deadline > now && challenge.status === 'Upcoming' && 
+                  deadline.getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000) {
+          newStatus = 'Active';
+          // Update status in database
+          await supabase
+            .from('challenges')
+            .update({ status: 'Active' })
+            .eq('id', challenge.id);
+        }
+
+        return {
+          id: challenge.id,
+          title: challenge.title,
+          description: challenge.description,
+          company: {
+            id: challenge.company.id,
+            name: challenge.company.full_name || 'Unknown Company',
+            logo: challenge.company.avatar_url || `https://ui-avatars.com/api/?name=${challenge.company.full_name}`,
+            description: challenge.company.company_details?.description,
+            website: challenge.company.company_details?.website,
+          },
+          deadline: challenge.deadline,
+          prizeMoney: challenge.prize_money,
+          difficulty: challenge.difficulty,
+          tags: challenge.tags || [],
+          participants: challenge.participants_count,
+          status: newStatus,
+          requirements: challenge.requirements || [],
+          evaluationCriteria: challenge.evaluation_criteria as any[] || [],
+        };
       }));
 
       set({
-        challenges: formattedChallenges,
-        filteredChallenges: formattedChallenges,
+        challenges: updatedChallenges,
+        filteredChallenges: updatedChallenges,
         isLoading: false
       });
     } catch (error: any) {
       console.error('Error fetching challenges:', error);
       toast.error('Failed to load challenges');
       set({ isLoading: false });
+    }
+  },
+  
+  updateChallengeStatus: async (challengeId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('challenges')
+        .update({ status: newStatus })
+        .eq('id', challengeId);
+
+      if (error) throw error;
+
+      set(state => ({
+        challenges: state.challenges.map(challenge =>
+          challenge.id === challengeId ? { ...challenge, status: newStatus } : challenge
+        ),
+        filteredChallenges: state.filteredChallenges.map(challenge =>
+          challenge.id === challengeId ? { ...challenge, status: newStatus } : challenge
+        )
+      }));
+
+      toast.success('Challenge status updated successfully');
+    } catch (error: any) {
+      console.error('Error updating challenge status:', error);
+      toast.error('Failed to update challenge status');
     }
   },
   
