@@ -35,7 +35,7 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
   fetchChallenges: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { data: challenges, error } = await supabase
+      const { data: challengesData, error } = await supabase
         .from('challenges')
         .select(`
           *,
@@ -50,54 +50,66 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
 
       if (error) throw error;
 
+      if (!challengesData) {
+        throw new Error('No challenges data received');
+      }
+
       // Update status based on deadline
       const now = new Date();
-      const updatedChallenges = await Promise.all((challenges || []).map(async (challenge) => {
-        const deadline = new Date(challenge.deadline);
-        let newStatus = challenge.status;
+      const updatedChallenges = await Promise.all(challengesData.map(async (challengeData) => {
+        if (!challengeData || !challengeData.company) {
+          console.error('Invalid challenge data:', challengeData);
+          return null;
+        }
 
-        if (deadline < now && challenge.status !== 'Completed') {
+        const deadline = new Date(challengeData.deadline);
+        let newStatus = challengeData.status;
+
+        if (deadline < now && challengeData.status !== 'Completed') {
           newStatus = 'Completed';
           // Update status in database
           await supabase
             .from('challenges')
             .update({ status: 'Completed' })
-            .eq('id', challenge.id);
-        } else if (deadline > now && challenge.status === 'Upcoming' && 
+            .eq('id', challengeData.id);
+        } else if (deadline > now && challengeData.status === 'Upcoming' && 
                   deadline.getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000) {
           newStatus = 'Active';
           // Update status in database
           await supabase
             .from('challenges')
             .update({ status: 'Active' })
-            .eq('id', challenge.id);
+            .eq('id', challengeData.id);
         }
 
         return {
-          id: challenge.id,
-          title: challenge.title,
-          description: challenge.description,
+          id: challengeData.id,
+          title: challengeData.title,
+          description: challengeData.description,
           company: {
-            id: challenge.company.id,
-            name: challenge.company.full_name || 'Unknown Company',
-            logo: challenge.company.avatar_url || `https://ui-avatars.com/api/?name=${challenge.company.full_name}`,
-            description: challenge.company.company_details?.description,
-            website: challenge.company.company_details?.website,
+            id: challengeData.company.id,
+            name: challengeData.company.full_name || 'Unknown Company',
+            logo: challengeData.company.avatar_url || `https://ui-avatars.com/api/?name=${challengeData.company.full_name}`,
+            description: challengeData.company.company_details?.description,
+            website: challengeData.company.company_details?.website,
           },
-          deadline: challenge.deadline,
-          prizeMoney: challenge.prize_money,
-          difficulty: challenge.difficulty,
-          tags: challenge.tags || [],
-          participants: challenge.participants_count,
+          deadline: challengeData.deadline,
+          prizeMoney: challengeData.prize_money,
+          difficulty: challengeData.difficulty,
+          tags: challengeData.tags || [],
+          participants: challengeData.participants_count,
           status: newStatus,
-          requirements: challenge.requirements || [],
-          evaluationCriteria: challenge.evaluation_criteria as any[] || [],
+          requirements: challengeData.requirements || [],
+          evaluationCriteria: challengeData.evaluation_criteria as any[] || [],
         };
       }));
 
+      // Filter out any null values from invalid data
+      const validChallenges = updatedChallenges.filter((c): c is Challenge => c !== null);
+
       set({
-        challenges: updatedChallenges,
-        filteredChallenges: updatedChallenges,
+        challenges: validChallenges,
+        filteredChallenges: validChallenges,
         isLoading: false,
         error: null
       });
@@ -105,7 +117,9 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
       console.error('Error fetching challenges:', error);
       set({ 
         error: error.message || 'Failed to load challenges',
-        isLoading: false 
+        isLoading: false,
+        challenges: [],
+        filteredChallenges: []
       });
       toast.error('Failed to load challenges');
     }
