@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User } from '../types';
+import { User, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface AuthState {
@@ -7,13 +7,20 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGithub: () => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, password: string) => Promise<User | null>;
+  loginWithGithub: () => Promise<User | null>;
+  loginWithGoogle: () => Promise<User | null>;
   logout: () => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
-  registerWithGithub: () => Promise<void>;
-  registerWithGoogle: () => Promise<void>;
+  register: (name: string, email: string, password: string, role: UserRole, companyDetails?: {
+    name: string;
+    logo: string;
+    website?: string;
+    description?: string;
+    industry?: string;
+    size?: string;
+  }) => Promise<void>;
+  registerWithGithub: (role: UserRole) => Promise<void>;
+  registerWithGoogle: (role: UserRole) => Promise<void>;
   clearError: () => void;
   updateProfile: (profileData: {
     name: string;
@@ -21,6 +28,14 @@ interface AuthState {
     githubUrl: string;
     portfolioUrl: string;
     githubUsername: string;
+    companyDetails?: {
+      name: string;
+      logo: string;
+      website?: string;
+      description?: string;
+      industry?: string;
+      size?: string;
+    };
   }) => Promise<void>;
 }
 
@@ -35,50 +50,72 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
+      console.log('Starting login process...');
+      
+      // Check for existing session
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) {
+        console.log('Found existing session, signing out...');
+        await supabase.auth.signOut();
+      }
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+
+      console.log('Supabase response:', { data, error });
+
       if (error) throw error;
+      if (!data?.session?.user) throw new Error('No user found');
 
-      if (data.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+      console.log('Session user:', data.session.user);
 
-        set({
-          user: {
-            id: data.user.id,
-            email: data.user.email!,
-            name: profile?.full_name || data.user.email!.split('@')[0],
-            avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || data.user.email!.split('@')[0]}`,
-            bio: profile?.bio || '',
-            githubUrl: profile?.github_url || '',
-            githubUsername: profile?.github_username || '',
-            portfolioUrl: profile?.portfolio_url || '',
-            careerScore: profile?.career_score || 0,
-            badges: profile?.badges || [],
-            joinedAt: data.user.created_at,
-          },
-          isAuthenticated: true,
-          error: null,
-        });
-      }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.session.user.id)
+        .single();
+
+      console.log('Profile data:', profile);
+
+      const userData = {
+        id: data.session.user.id,
+        email: data.session.user.email!,
+        name: profile?.full_name || data.session.user.user_metadata?.name || data.session.user.email!.split('@')[0],
+        role: data.session.user.user_metadata?.role || 'individual',
+        avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || data.session.user.email!.split('@')[0]}`,
+        bio: profile?.bio || '',
+        githubUrl: profile?.github_url || '',
+        githubUsername: profile?.github_username || '',
+        portfolioUrl: profile?.portfolio_url || '',
+        careerScore: profile?.career_score || 0,
+        badges: profile?.badges || [],
+        joinedAt: data.session.user.created_at,
+        companyDetails: data.session.user.user_metadata?.companyDetails,
+        user_metadata: data.session.user.user_metadata
+      };
+
+      set({
+        isAuthenticated: true,
+        user: userData,
+        isLoading: false
+      });
+
+      return userData;
     } catch (error: any) {
-      set({ error: error.message || 'Failed to login' });
+      set({ 
+        error: error.message || 'Failed to login',
+        isLoading: false 
+      });
       throw error;
-    } finally {
-      set({ isLoading: false });
     }
   },
 
   loginWithGithub: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -86,6 +123,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       
       if (error) throw error;
+      return null; // OAuth redirects, so we don't need to return user here
     } catch (error: any) {
       set({ error: error.message || 'Failed to login with GitHub' });
       throw error;
@@ -97,7 +135,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   loginWithGoogle: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -105,6 +143,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       
       if (error) throw error;
+      return null; // OAuth redirects, so we don't need to return user here
     } catch (error: any) {
       set({ error: error.message || 'Failed to login with Google' });
       throw error;
@@ -116,21 +155,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     set({ isLoading: true, error: null });
     try {
-      // First, sign out from Supabase
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) throw signOutError;
 
-      // Clear the local state
       set({
         user: null,
         isAuthenticated: false,
         error: null,
       });
-
-      // Clear any stored session data
-      await supabase.auth.clearSession();
       
-      // Force a page reload to clear any cached state
       window.location.href = '/';
     } catch (error: any) {
       console.error('Logout error:', error);
@@ -141,7 +174,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   
-  register: async (name, email, password) => {
+  register: async (name, email, password, role, companyDetails) => {
     set({ isLoading: true, error: null });
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -150,6 +183,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         options: {
           data: {
             name,
+            role,
+            companyDetails,
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -166,9 +201,11 @@ export const useAuthStore = create<AuthState>((set) => ({
               id: data.user.id,
               full_name: name,
               email,
+              role,
               avatar_url: `https://ui-avatars.com/api/?name=${name}`,
               career_score: 0,
               badges: [],
+              company_details: companyDetails,
             },
           ]);
 
@@ -179,10 +216,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             id: data.user.id,
             email: data.user.email!,
             name,
+            role,
             avatar: `https://ui-avatars.com/api/?name=${name}`,
             careerScore: 0,
             badges: [],
             joinedAt: data.user.created_at,
+            companyDetails,
           },
           isAuthenticated: true,
           error: null,
@@ -196,11 +235,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  registerWithGithub: async () => {
+  registerWithGithub: async (role: UserRole) => {
     await useAuthStore.getState().loginWithGithub();
   },
 
-  registerWithGoogle: async () => {
+  registerWithGoogle: async (role: UserRole) => {
     await useAuthStore.getState().loginWithGoogle();
   },
 
@@ -209,6 +248,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
+      if (!user) throw new Error('No user found');
 
       const { error: updateError } = await supabase
         .from('profiles')
@@ -243,7 +283,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 // Set up auth state listener
-supabase.auth.onAuthStateChange(async (event, session) => {
+supabase.auth.onAuthStateChange(async (_, session) => {
   if (session?.user) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -255,7 +295,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       user: {
         id: session.user.id,
         email: session.user.email!,
-        name: profile?.full_name || session.user.email!.split('@')[0],
+        name: profile?.full_name || session.user.user_metadata?.name || session.user.email!.split('@')[0],
+        role: session.user.user_metadata?.role || 'individual',
         avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || session.user.email!.split('@')[0]}`,
         bio: profile?.bio || '',
         githubUrl: profile?.github_url || '',
@@ -264,6 +305,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         careerScore: profile?.career_score || 0,
         badges: profile?.badges || [],
         joinedAt: session.user.created_at,
+        companyDetails: session.user.user_metadata?.companyDetails,
+        user_metadata: session.user.user_metadata
       },
       isAuthenticated: true,
       error: null,

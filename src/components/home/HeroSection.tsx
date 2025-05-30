@@ -2,8 +2,11 @@ import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Button from '../ui/Button';
+import { useAuthStore } from '../../store/authStore';
 
 const HeroSection = () => {
+  const { isAuthenticated } = useAuthStore();
+
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-secondary-900 text-white">
       {/* Particle animation in background */}
@@ -48,24 +51,26 @@ const HeroSection = () => {
               Showcase your AI product building skills by competing in challenges authored by top companies. Get hired based on what you can actually build.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center md:justify-start">
-              <Button
-                size="lg"
-                as={Link}
-                to="/challenges"
-                rightIcon={<ArrowRight size={20} />}
-                className="w-full sm:w-auto"
-              >
-                Browse Challenges
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                as={Link}
-                to="/register"
-                className="w-full sm:w-auto bg-white bg-opacity-10 border-white border-opacity-20 text-white hover:bg-opacity-20"
-              >
-                Create Account
-              </Button>
+              <Link to="/challenges" className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  rightIcon={<ArrowRight size={20} />}
+                  className="w-full"
+                >
+                  Browse Challenges
+                </Button>
+              </Link>
+              {!isAuthenticated && (
+                <Link to="/register" className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full bg-white bg-opacity-10 border-white border-opacity-20 text-white hover:bg-opacity-20"
+                  >
+                    Create Account
+                  </Button>
+                </Link>
+              )}
             </div>
           </motion.div>
           

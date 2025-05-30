@@ -4,12 +4,14 @@ import { Menu, X, Bell, User, LogIn } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { cn } from '../../lib/utils';
 
+
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { isAuthenticated, user, logout } = useAuthStore();
   const location = useLocation();
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const isCompany = user?.role === 'company';
   
   const navLinks = [
     { text: 'Home', href: '/' },
@@ -67,6 +69,19 @@ const Navbar = () => {
                 {link.text}
               </Link>
             ))}
+            {isCompany && (
+              <Link
+                to="/company/dashboard"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-secondary-600 relative py-5",
+                  location.pathname === "/company/dashboard"
+                    ? "text-secondary-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-secondary-600"
+                    : "text-gray-700"
+                )}
+              >
+                Company Dashboard
+              </Link>
+            )}
           </nav>
 
           {/* User Actions */}
@@ -159,6 +174,20 @@ const Navbar = () => {
                 {link.text}
               </Link>
             ))}
+            {isCompany && (
+              <Link
+                to="/company/dashboard"
+                className={cn(
+                  "block px-3 py-2 rounded-md text-base font-medium",
+                  location.pathname === "/company/dashboard"
+                    ? "bg-secondary-50 text-secondary-600"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-secondary-600"
+                )}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Company Dashboard
+              </Link>
+            )}
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200">
             {isAuthenticated ? (

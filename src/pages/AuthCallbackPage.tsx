@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/authStore';
 
 const AuthCallbackPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -120,9 +122,15 @@ const AuthCallbackPage = () => {
           console.log('Profile already exists');
         }
 
-        // Redirect to challenges page
-        console.log('Redirecting to challenges page...');
-        navigate('/challenges');
+        // Redirect based on role
+        if (user) {
+          const userRole = user.user_metadata?.role;
+          if (userRole === 'company') {
+            navigate('/company/dashboard');
+          } else {
+            navigate('/challenges');
+          }
+        }
       } catch (error) {
         console.error('Unexpected error in auth callback:', error);
         setError('An unexpected error occurred. Please try again.');
@@ -142,23 +150,13 @@ const AuthCallbackPage = () => {
     handleCallback();
 
     return () => clearTimeout(timeoutId);
-  }, [navigate, location]);
+  }, [navigate, location, user]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
-        {error ? (
-          <>
-            <h2 className="text-2xl font-semibold text-error-600">Error</h2>
-            <p className="mt-2 text-gray-600">{error}</p>
-            <p className="mt-2 text-sm text-gray-500">Redirecting to login page...</p>
-          </>
-        ) : (
-          <>
-            <h2 className="text-2xl font-semibold text-gray-900">Completing registration...</h2>
-            <p className="mt-2 text-gray-600">Please wait while we set up your account.</p>
-          </>
-        )}
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Completing sign in...</p>
       </div>
     </div>
   );

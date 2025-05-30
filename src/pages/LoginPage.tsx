@@ -1,46 +1,40 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Github } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../store/authStore';
+import { UserRole } from '../types';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    role: 'individual' as UserRole
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { login, loginWithGithub, loginWithGoogle, isLoading } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/challenges';
   
-  const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Email is invalid';
-    }
-    
-    if (!password) {
-      newErrors.password = 'Password is required';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
+    setErrors({});
     
     try {
-      await login(email, password);
-      navigate('/challenges');
+      const user = await login(formData.email, formData.password);
+      // Redirect to the attempted page or default based on role
+      if (user?.role === 'company') {
+        navigate('/company/dashboard');
+      } else {
+        navigate(from);
+      }
     } catch (error) {
       console.error('Login failed:', error);
       setErrors({ 
-        email: 'Invalid credentials. Please try again.'
+        email: 'Invalid email or password'
       });
     }
   };
@@ -48,7 +42,7 @@ const LoginPage = () => {
   const handleGithubLogin = async () => {
     try {
       await loginWithGithub();
-      navigate('/challenges');
+      // Role check will happen in auth callback
     } catch (error) {
       console.error('GitHub login failed:', error);
     }
@@ -57,7 +51,7 @@ const LoginPage = () => {
   const handleGoogleLogin = async () => {
     try {
       await loginWithGoogle();
-      navigate('/challenges');
+      // Role check will happen in auth callback
     } catch (error) {
       console.error('Google login failed:', error);
     }
@@ -72,49 +66,75 @@ const LoginPage = () => {
         className="max-w-md w-full space-y-8"
       >
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Sign in to your account</h2>
           <p className="mt-2 text-gray-600">
-            Log in to your AI Challenge Arena account
+            Choose your account type
           </p>
         </div>
 
-        <div className="flex flex-col space-y-4">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            size="lg"
-            onClick={handleGithubLogin}
-            leftIcon={<Github size={20} />}
+        {/* Role Selection */}
+        <div className="grid grid-cols-2 gap-4">
+          <div
+            className={`border rounded-lg p-4 cursor-pointer ${
+              formData.role === 'individual' ? 'border-secondary-500 bg-secondary-50' : 'border-gray-300'
+            }`}
+            onClick={() => setFormData({ ...formData, role: 'individual' })}
           >
-            Continue with GitHub
-          </Button>
-          
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            size="lg"
-            onClick={handleGoogleLogin}
+            <h3 className="font-medium text-gray-900">Individual</h3>
+            <p className="text-sm text-gray-500 mt-1">Join as a developer</p>
+          </div>
+          <div
+            className={`border rounded-lg p-4 cursor-pointer ${
+              formData.role === 'company' ? 'border-secondary-500 bg-secondary-50' : 'border-gray-300'
+            }`}
+            onClick={() => setFormData({ ...formData, role: 'company' })}
           >
-            <img 
-              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-              alt="Google" 
-              className="w-5 h-5 mr-2"
-            />
-            Continue with Google
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
-            </div>
+            <h3 className="font-medium text-gray-900">Company</h3>
+            <p className="text-sm text-gray-500 mt-1">Post challenges</p>
           </div>
         </div>
-        
+
+        {/* Social Login Buttons - Only show for individual users */}
+        {formData.role === 'individual' && (
+          <div className="flex flex-col space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              size="lg"
+              onClick={handleGithubLogin}
+              leftIcon={<Github size={20} />}
+            >
+              Continue with GitHub
+            </Button>
+            
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              size="lg"
+              onClick={handleGoogleLogin}
+            >
+              <img 
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                alt="Google" 
+                className="w-5 h-5 mr-2"
+              />
+              Continue with Google
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email/Password Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -130,8 +150,8 @@ const LoginPage = () => {
                   name="email"
                   type="email"
                   autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className={`block w-full pl-10 pr-3 py-2 border ${
                     errors.email ? 'border-error-500 focus:ring-error-500 focus:border-error-500' : 'border-gray-300 focus:ring-secondary-500 focus:border-secondary-500'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 sm:text-sm`}
@@ -156,8 +176,8 @@ const LoginPage = () => {
                   name="password"
                   type="password"
                   autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className={`block w-full pl-10 pr-3 py-2 border ${
                     errors.password ? 'border-error-500 focus:ring-error-500 focus:border-error-500' : 'border-gray-300 focus:ring-secondary-500 focus:border-secondary-500'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 sm:text-sm`}
@@ -196,8 +216,13 @@ const LoginPage = () => {
               className="w-full"
               size="lg"
               isLoading={isLoading}
+              disabled={isLoading}
             >
-              {!isLoading && (
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary-600"></div>
+                </div>
+              ) : (
                 <>
                   Sign In
                   <ArrowRight size={16} className="ml-2" />

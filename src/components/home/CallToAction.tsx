@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Button from '../ui/Button';
+import { useAuthStore } from '../../store/authStore';
 
 const CallToAction = () => {
+  const { isAuthenticated } = useAuthStore();
+
   return (
     <section className="py-16 md:py-24 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -28,23 +31,22 @@ const CallToAction = () => {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row md:flex-col space-y-4 sm:space-y-0 sm:space-x-4 md:space-x-0 md:space-y-4">
-                <Button
-                  size="lg"
-                  className="w-full md:w-auto"
-                  as={Link}
-                  to="/challenges"
-                >
-                  Browse Challenges
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full md:w-auto bg-white text-primary-900 hover:bg-gray-100"
-                  as={Link}
-                  to="/register"
-                >
-                  Create Account
-                </Button>
+                <Link to="/challenges" className="w-full md:w-auto">
+                  <Button size="lg" className="w-full">
+                    Browse Challenges
+                  </Button>
+                </Link>
+                {!isAuthenticated && (
+                  <Link to="/register" className="w-full md:w-auto">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full bg-white text-primary-900 hover:bg-gray-100"
+                    >
+                      Create Account
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>

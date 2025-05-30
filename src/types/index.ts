@@ -1,8 +1,13 @@
+import { UserMetadata } from '@supabase/supabase-js';
+
+export type UserRole = 'individual' | 'company';
+
 export interface User {
   id: string;
   name: string;
   email: string;
   avatar: string;
+  role: UserRole;
   bio?: string;
   githubUrl?: string;
   githubUsername?: string;
@@ -10,6 +15,16 @@ export interface User {
   careerScore: number;
   badges: Badge[];
   joinedAt: string;
+  // Company specific fields
+  companyDetails?: {
+    name: string;
+    logo: string;
+    website?: string;
+    description?: string;
+    industry?: string;
+    size?: string;
+  };
+  user_metadata?: UserMetadata;
 }
 
 export interface Challenge {
