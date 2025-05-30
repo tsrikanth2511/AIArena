@@ -3,18 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Trophy, Users, BarChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
+import { Challenge } from '../types';
+import { formatDate } from '../lib/utils';
 import toast from 'react-hot-toast';
-
-interface Challenge {
-  id: string;
-  title: string;
-  description: string;
-  status: 'Active' | 'Upcoming' | 'Completed';
-  participants_count: number;
-  created_at: string;
-}
 
 const CompanyDashboardPage = () => {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -35,14 +29,43 @@ const CompanyDashboardPage = () => {
     
     try {
       const { data, error } = await supabase
-        
         .from('challenges')
-        .select('*')
+        .select(`
+          *,
+          company:company_id (
+            id,
+            full_name,
+            avatar_url,
+            company_details
+          )
+        `)
         .eq('company_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setChallenges(data || []);
+
+      const formattedChallenges: Challenge[] = (data || []).map(challenge => ({
+        id: challenge.id,
+        title: challenge.title,
+        description: challenge.description,
+        company: {
+          id: challenge.company.id,
+          name: challenge.company.full_name || 'Unknown Company',
+          logo: challenge.company.avatar_url || `https://ui-avatars.com/api/?name=${challenge.company.full_name}`,
+          description: challenge.company.company_details?.description,
+          website: challenge.company.company_details?.website,
+        },
+        deadline: challenge.deadline,
+        prizeMoney: challenge.prize_money,
+        difficulty: challenge.difficulty,
+        tags: challenge.tags || [],
+        participants: challenge.participants_count,
+        status: challenge.status,
+        requirements: challenge.requirements || [],
+        evaluationCriteria: challenge.evaluation_criteria as any[] || [],
+      }));
+
+      setChallenges(formattedChallenges);
     } catch (error: any) {
       console.error('Error fetching challenges:', error);
       toast.error('Failed to load challenges');
@@ -66,7 +89,7 @@ const CompanyDashboardPage = () => {
     },
     {
       title: 'Total Participants',
-      value: challenges.reduce((acc, c) => acc + c.participants_count, 0),
+      value: challenges.reduce((acc, c) => acc + c.participants, 0),
       icon: Users,
       color: 'bg-purple-500',
     },
@@ -124,10 +147,28 @@ const CompanyDashboardPage = () => {
         </div>
         <div className="divide-y divide-gray-200">
           {isLoading ? (
-            <div className="p-6 text-center text-gray-500">Loading challenges...</div>
+            <div className="p-6">
+              <div className="animate-pulse space-y-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-64"></div>
+                      <div className="h-3 bg-gray-200 rounded w-48"></div>
+                    </div>
+                    <div className="h-8 bg-gray-200 rounded w-24"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : challenges.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
-              No challenges yet. Create your first challenge!
+              <p className="mb-4">No challenges yet.</p>
+              <Button
+                onClick={() => navigate('/company/challenges/create')}
+                leftIcon={<Plus size={16} />}
+              >
+                Create your first challenge
+              </Button>
             </div>
           ) : (
             challenges.map((challenge) => (
@@ -141,26 +182,38 @@ const CompanyDashboardPage = () => {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">{challenge.title}</h3>
                     <p className="mt-1 text-sm text-gray-500">{challenge.description}</p>
+                    <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                      <span className="flex items-center">
+                        <Users size={16} className="mr-1" />
+                        {challenge.participants} participants
+                      </span>
+                      <span>Deadline: {formatDate(challenge.deadline)}</span>
+                      <span>${challenge.prizeMoney.toLocaleString()} Prize</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {challenge.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex items-center space-x-4">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      challenge.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      challenge.status === 'Completed' ? 'bg-gray-100 text-gray-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {challenge.status}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      onClick={() => navigate(`/challenges/${challenge.id}/edit`)}
+                    <Badge
+                      variant={
+                        challenge.status === 'Active' ? 'success' :
+                        challenge.status === 'Completed' ? 'default' : 'warning'
+                      }
                     >
-                      Edit
+                      {challenge.status}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate(`/challenges/${challenge.id}`)}
+                    >
+                      View Details
                     </Button>
                   </div>
-                </div>
-                <div className="mt-4 flex items-center text-sm text-gray-500">
-                  <Users size={16} className="mr-1" />
-                  {challenge.participants_count} participants
                 </div>
               </motion.div>
             ))
