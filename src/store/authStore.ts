@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface AuthState {
   user: User | null;
@@ -40,7 +41,7 @@ interface AuthState {
   initializeAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
@@ -56,28 +57,30 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', session.user.id)
           .single();
 
-        const userData = {
-          id: session.user.id,
-          email: session.user.email!,
-          name: profile?.full_name || session.user.user_metadata?.name || session.user.email!.split('@')[0],
-          role: session.user.user_metadata?.role || 'individual',
-          avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || session.user.email!.split('@')[0]}`,
-          bio: profile?.bio || '',
-          githubUrl: profile?.github_url || '',
-          githubUsername: profile?.github_username || '',
-          portfolioUrl: profile?.portfolio_url || '',
-          careerScore: profile?.career_score || 0,
-          badges: profile?.badges || [],
-          joinedAt: session.user.created_at,
-          companyDetails: session.user.user_metadata?.companyDetails,
-          user_metadata: session.user.user_metadata
-        };
+        if (profile) {
+          const userData = {
+            id: session.user.id,
+            email: session.user.email!,
+            name: profile.full_name || session.user.user_metadata?.name || session.user.email!.split('@')[0],
+            role: profile.role || 'individual',
+            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name || session.user.email!.split('@')[0]}`,
+            bio: profile.bio || '',
+            githubUrl: profile.github_url || '',
+            githubUsername: profile.github_username || '',
+            portfolioUrl: profile.portfolio_url || '',
+            careerScore: profile.career_score || 0,
+            badges: profile.badges || [],
+            joinedAt: session.user.created_at,
+            companyDetails: profile.company_details,
+            user_metadata: session.user.user_metadata
+          };
 
-        set({
-          isAuthenticated: true,
-          user: userData,
-          isLoading: false
-        });
+          set({
+            isAuthenticated: true,
+            user: userData,
+            isLoading: false
+          });
+        }
       }
     } catch (error) {
       console.error('Error initializing auth:', error);
@@ -104,34 +107,40 @@ export const useAuthStore = create<AuthState>((set) => ({
         .eq('id', data.session.user.id)
         .single();
 
+      if (!profile) throw new Error('Profile not found');
+
       const userData = {
         id: data.session.user.id,
         email: data.session.user.email!,
-        name: profile?.full_name || data.session.user.user_metadata?.name || data.session.user.email!.split('@')[0],
-        role: data.session.user.user_metadata?.role || 'individual',
-        avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || data.session.user.email!.split('@')[0]}`,
-        bio: profile?.bio || '',
-        githubUrl: profile?.github_url || '',
-        githubUsername: profile?.github_username || '',
-        portfolioUrl: profile?.portfolio_url || '',
-        careerScore: profile?.career_score || 0,
-        badges: profile?.badges || [],
+        name: profile.full_name || data.session.user.user_metadata?.name || data.session.user.email!.split('@')[0],
+        role: profile.role || 'individual',
+        avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name || data.session.user.email!.split('@')[0]}`,
+        bio: profile.bio || '',
+        githubUrl: profile.github_url || '',
+        githubUsername: profile.github_username || '',
+        portfolioUrl: profile.portfolio_url || '',
+        careerScore: profile.career_score || 0,
+        badges: profile.badges || [],
         joinedAt: data.session.user.created_at,
-        companyDetails: data.session.user.user_metadata?.companyDetails,
+        companyDetails: profile.company_details,
         user_metadata: data.session.user.user_metadata
       };
 
       set({
         isAuthenticated: true,
         user: userData,
-        isLoading: false
+        isLoading: false,
+        error: null
       });
 
       return userData;
     } catch (error: any) {
+      console.error('Login error:', error);
       set({ 
         error: error.message || 'Failed to login',
-        isLoading: false 
+        isLoading: false,
+        isAuthenticated: false,
+        user: null
       });
       throw error;
     }
@@ -180,8 +189,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { error: signOutError } = await supabase.auth.signOut();
-      if (signOutError) throw signOutError;
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
 
       set({
         user: null,
@@ -282,6 +291,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           github_url: profileData.githubUrl,
           github_username: profileData.githubUsername,
           portfolio_url: profileData.portfolioUrl,
+          company_details: profileData.companyDetails,
         })
         .eq('id', user.id);
 
@@ -294,6 +304,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           bio: profileData.bio,
           githubUrl: profileData.githubUrl,
           portfolioUrl: profileData.portfolioUrl,
+          companyDetails: profileData.companyDetails,
         } : null,
       }));
     } catch (error: any) {
@@ -320,25 +331,27 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       .eq('id', session.user.id)
       .single();
 
-    useAuthStore.setState({
-      user: {
-        id: session.user.id,
-        email: session.user.email!,
-        name: profile?.full_name || session.user.user_metadata?.name || session.user.email!.split('@')[0],
-        role: session.user.user_metadata?.role || 'individual',
-        avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || session.user.email!.split('@')[0]}`,
-        bio: profile?.bio || '',
-        githubUrl: profile?.github_url || '',
-        githubUsername: profile?.github_username || '',
-        portfolioUrl: profile?.portfolio_url || '',
-        careerScore: profile?.career_score || 0,
-        badges: profile?.badges || [],
-        joinedAt: session.user.created_at,
-        companyDetails: session.user.user_metadata?.companyDetails,
-        user_metadata: session.user.user_metadata
-      },
-      isAuthenticated: true,
-      error: null,
-    });
+    if (profile) {
+      useAuthStore.setState({
+        user: {
+          id: session.user.id,
+          email: session.user.email!,
+          name: profile.full_name || session.user.user_metadata?.name || session.user.email!.split('@')[0],
+          role: profile.role || 'individual',
+          avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name || session.user.email!.split('@')[0]}`,
+          bio: profile.bio || '',
+          githubUrl: profile.github_url || '',
+          githubUsername: profile.github_username || '',
+          portfolioUrl: profile.portfolio_url || '',
+          careerScore: profile.career_score || 0,
+          badges: profile.badges || [],
+          joinedAt: session.user.created_at,
+          companyDetails: profile.company_details,
+          user_metadata: session.user.user_metadata
+        },
+        isAuthenticated: true,
+        error: null,
+      });
+    }
   }
 });
