@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 import { supabase } from '../../lib/supabase';
 import { AlertCircle } from 'lucide-react';
 
 const CreateChallengePage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
