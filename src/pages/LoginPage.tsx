@@ -18,7 +18,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/challenges';
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -77,7 +77,6 @@ const LoginPage = () => {
           </p>
         </div>
 
-        {/* Role Selection */}
         <div className="grid grid-cols-2 gap-4">
           <div
             className={`border rounded-lg p-4 cursor-pointer ${
@@ -143,7 +142,6 @@ const LoginPage = () => {
           </div>
         )}
 
-        {/* Email/Password Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>

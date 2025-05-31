@@ -15,14 +15,10 @@ export interface User {
   careerScore: number;
   badges: Badge[];
   joinedAt: string;
-  // Company specific fields
   companyDetails?: {
     name: string;
-    logo: string;
     website?: string;
     description?: string;
-    industry?: string;
-    size?: string;
   };
   user_metadata?: UserMetadata;
 }
