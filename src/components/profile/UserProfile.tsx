@@ -99,12 +99,6 @@ const UserProfile = () => {
                 )}
               </div>
             </div>
-            
-            <div className="mt-4 sm:mt-0 flex-shrink-0">
-              <Button variant="outline" size="sm" leftIcon={<User size={14} />}>
-                Edit Profile
-              </Button>
-            </div>
           </div>
           
           {/* Stats cards - Only show for individual users */}
