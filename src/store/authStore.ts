@@ -14,11 +14,8 @@ interface AuthState {
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole, companyDetails?: {
     name: string;
-    logo: string;
     website?: string;
     description?: string;
-    industry?: string;
-    size?: string;
   }) => Promise<void>;
   registerWithGithub: (role: UserRole) => Promise<void>;
   registerWithGoogle: (role: UserRole) => Promise<void>;
@@ -29,14 +26,6 @@ interface AuthState {
     githubUrl: string;
     portfolioUrl: string;
     githubUsername: string;
-    companyDetails?: {
-      name: string;
-      logo: string;
-      website?: string;
-      description?: string;
-      industry?: string;
-      size?: string;
-    };
   }) => Promise<void>;
   initializeAuth: () => Promise<void>;
 }
@@ -61,9 +50,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const userData = {
             id: session.user.id,
             email: session.user.email!,
-            name: profile.full_name || session.user.user_metadata?.name || session.user.email!.split('@')[0],
+            name: profile.full_name || session.user.email!.split('@')[0],
             role: profile.role || 'individual',
-            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name || session.user.email!.split('@')[0]}`,
+            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
             bio: profile.bio || '',
             githubUrl: profile.github_url || '',
             githubUsername: profile.github_username || '',
@@ -118,9 +107,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const userData = {
         id: data.session.user.id,
         email: data.session.user.email!,
-        name: profile.full_name || data.session.user.user_metadata?.name || data.session.user.email!.split('@')[0],
+        name: profile.full_name || data.session.user.email!.split('@')[0],
         role: profile.role || 'individual',
-        avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name || data.session.user.email!.split('@')[0]}`,
+        avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
         bio: profile.bio || '',
         githubUrl: profile.github_url || '',
         githubUsername: profile.github_username || '',
@@ -298,7 +287,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           github_url: profileData.githubUrl,
           github_username: profileData.githubUsername,
           portfolio_url: profileData.portfolioUrl,
-          company_details: profileData.companyDetails,
         })
         .eq('id', user.id);
 
@@ -311,7 +299,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           bio: profileData.bio,
           githubUrl: profileData.githubUrl,
           portfolioUrl: profileData.portfolioUrl,
-          companyDetails: profileData.companyDetails,
         } : null,
       }));
 
@@ -347,9 +334,9 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         user: {
           id: session.user.id,
           email: session.user.email!,
-          name: profile.full_name || session.user.user_metadata?.name || session.user.email!.split('@')[0],
+          name: profile.full_name || session.user.email!.split('@')[0],
           role: profile.role || 'individual',
-          avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name || session.user.email!.split('@')[0]}`,
+          avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
           bio: profile.bio || '',
           githubUrl: profile.github_url || '',
           githubUsername: profile.github_username || '',
