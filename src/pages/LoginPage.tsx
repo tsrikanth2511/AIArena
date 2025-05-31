@@ -5,6 +5,7 @@ import { Mail, Lock, ArrowRight, Github } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../store/authStore';
 import { UserRole } from '../types';
+import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -18,21 +19,23 @@ const LoginPage = () => {
   const location = useLocation();
   const from = location.state?.from?.pathname || '/challenges';
   
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     
     try {
       const user = await login(formData.email, formData.password);
+      toast.success('Login successful!');
+      
       // Redirect to the attempted page or default based on role
       if (user?.role === 'company') {
         navigate('/company/dashboard');
       } else {
         navigate(from);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
+      toast.error('Login failed. Please check your credentials.');
       setErrors({ 
         email: 'Invalid email or password'
       });
@@ -45,6 +48,7 @@ const LoginPage = () => {
       // Role check will happen in auth callback
     } catch (error) {
       console.error('GitHub login failed:', error);
+      toast.error('GitHub login failed. Please try again.');
     }
   };
 
@@ -54,9 +58,10 @@ const LoginPage = () => {
       // Role check will happen in auth callback
     } catch (error) {
       console.error('Google login failed:', error);
+      toast.error('Google login failed. Please try again.');
     }
   };
-  
+
   return (
     <div className="min-h-[calc(100vh-16rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -104,6 +109,8 @@ const LoginPage = () => {
               size="lg"
               onClick={handleGithubLogin}
               leftIcon={<Github size={20} />}
+              isLoading={isLoading}
+              disabled={isLoading}
             >
               Continue with GitHub
             </Button>
@@ -114,6 +121,8 @@ const LoginPage = () => {
               className="w-full"
               size="lg"
               onClick={handleGoogleLogin}
+              isLoading={isLoading}
+              disabled={isLoading}
             >
               <img 
                 src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
@@ -156,6 +165,7 @@ const LoginPage = () => {
                     errors.email ? 'border-error-500 focus:ring-error-500 focus:border-error-500' : 'border-gray-300 focus:ring-secondary-500 focus:border-secondary-500'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 sm:text-sm`}
                   placeholder="you@example.com"
+                  disabled={isLoading}
                 />
               </div>
               {errors.email && (
@@ -182,6 +192,7 @@ const LoginPage = () => {
                     errors.password ? 'border-error-500 focus:ring-error-500 focus:border-error-500' : 'border-gray-300 focus:ring-secondary-500 focus:border-secondary-500'
                   } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 sm:text-sm`}
                   placeholder="••••••••"
+                  disabled={isLoading}
                 />
               </div>
               {errors.password && (
@@ -217,17 +228,9 @@ const LoginPage = () => {
               size="lg"
               isLoading={isLoading}
               disabled={isLoading}
+              rightIcon={!isLoading ? <ArrowRight size={16} /> : undefined}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary-600"></div>
-                </div>
-              ) : (
-                <>
-                  Sign In
-                  <ArrowRight size={16} className="ml-2" />
-                </>
-              )}
+              Sign In
             </Button>
           </div>
         </form>
