@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, X, Calendar, DollarSign, Tag, ListChecks, BarChart } from 'lucide-react';
+import { ArrowLeft, Plus, X, Calendar, DollarSign, Tag, ListChecks, BarChart, Info } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { useAuthStore } from '../store/authStore';
@@ -44,6 +44,47 @@ const CreateChallengePage = () => {
     }]
   });
   const [currentTag, setCurrentTag] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.title.trim()) {
+      newErrors.title = 'Title is required';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Description is required';
+    }
+
+    if (!formData.deadline) {
+      newErrors.deadline = 'Deadline is required';
+    } else {
+      const deadlineDate = new Date(formData.deadline);
+      if (deadlineDate <= new Date()) {
+        newErrors.deadline = 'Deadline must be in the future';
+      }
+    }
+
+    if (!formData.prizeMoney || parseInt(formData.prizeMoney) <= 0) {
+      newErrors.prizeMoney = 'Prize money must be greater than 0';
+    }
+
+    if (formData.tags.length === 0) {
+      newErrors.tags = 'At least one tag is required';
+    }
+
+    if (formData.requirements.filter(r => r.trim()).length === 0) {
+      newErrors.requirements = 'At least one requirement is required';
+    }
+
+    if (!validateWeights()) {
+      newErrors.evaluationCriteria = 'Evaluation criteria weights must sum to 100%';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +93,8 @@ const CreateChallengePage = () => {
       return;
     }
 
-    if (!validateWeights()) {
-      toast.error('Evaluation criteria weights must sum to 100%');
+    if (!validateForm()) {
+      toast.error('Please fix the errors before submitting');
       return;
     }
 
@@ -98,6 +139,7 @@ const CreateChallengePage = () => {
         tags: [...formData.tags, currentTag]
       });
       setCurrentTag('');
+      setErrors({ ...errors, tags: '' });
     }
   };
 
@@ -113,6 +155,7 @@ const CreateChallengePage = () => {
       ...formData,
       requirements: [...formData.requirements, '']
     });
+    setErrors({ ...errors, requirements: '' });
   };
 
   const handleRemoveRequirement = (index: number) => {
@@ -189,11 +232,16 @@ const CreateChallengePage = () => {
                       type="text"
                       id="title"
                       value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                      onChange={(e) => {
+                        setFormData({ ...formData, title: e.target.value });
+                        setErrors({ ...errors, title: '' });
+                      }}
+                      className={`w-full rounded-lg border ${errors.title ? 'border-error-500' : 'border-gray-300'} shadow-sm focus:border-secondary-500 focus:ring-secondary-500`}
                       placeholder="Enter a descriptive title for your challenge"
-                      required
                     />
+                    {errors.title && (
+                      <p className="mt-1 text-sm text-error-600">{errors.title}</p>
+                    )}
                   </div>
 
                   <div>
@@ -203,12 +251,17 @@ const CreateChallengePage = () => {
                     <textarea
                       id="description"
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, description: e.target.value });
+                        setErrors({ ...errors, description: '' });
+                      }}
                       rows={4}
-                      className="w-full rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                      className={`w-full rounded-lg border ${errors.description ? 'border-error-500' : 'border-gray-300'} shadow-sm focus:border-secondary-500 focus:ring-secondary-500`}
                       placeholder="Describe the challenge, its objectives, and what you're looking for"
-                      required
                     />
+                    {errors.description && (
+                      <p className="mt-1 text-sm text-error-600">{errors.description}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -223,10 +276,16 @@ const CreateChallengePage = () => {
                         type="date"
                         id="deadline"
                         value={formData.deadline}
-                        onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                        className="w-full rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
-                        required
+                        onChange={(e) => {
+                          setFormData({ ...formData, deadline: e.target.value });
+                          setErrors({ ...errors, deadline: '' });
+                        }}
+                        className={`w-full rounded-lg border ${errors.deadline ? 'border-error-500' : 'border-gray-300'} shadow-sm focus:border-secondary-500 focus:ring-secondary-500`}
+                        min={new Date().toISOString().split('T')[0]}
                       />
+                      {errors.deadline && (
+                        <p className="mt-1 text-sm text-error-600">{errors.deadline}</p>
+                      )}
                     </div>
 
                     <div>
@@ -242,12 +301,18 @@ const CreateChallengePage = () => {
                           type="number"
                           id="prizeMoney"
                           value={formData.prizeMoney}
-                          onChange={(e) => setFormData({ ...formData, prizeMoney: e.target.value })}
-                          className="w-full pl-8 rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                          onChange={(e) => {
+                            setFormData({ ...formData, prizeMoney: e.target.value });
+                            setErrors({ ...errors, prizeMoney: '' });
+                          }}
+                          className={`w-full pl-8 rounded-lg border ${errors.prizeMoney ? 'border-error-500' : 'border-gray-300'} shadow-sm focus:border-secondary-500 focus:ring-secondary-500`}
                           placeholder="1000"
-                          required
+                          min="0"
                         />
                       </div>
+                      {errors.prizeMoney && (
+                        <p className="mt-1 text-sm text-error-600">{errors.prizeMoney}</p>
+                      )}
                     </div>
 
                     <div>
@@ -261,7 +326,7 @@ const CreateChallengePage = () => {
                         id="difficulty"
                         value={formData.difficulty}
                         onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as ChallengeForm['difficulty'] })}
-                        className="w-full rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                        className="w-full rounded-lg border border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
                       >
                         <option value="Beginner">Beginner</option>
                         <option value="Intermediate">Intermediate</option>
@@ -285,7 +350,7 @@ const CreateChallengePage = () => {
                       type="text"
                       value={currentTag}
                       onChange={(e) => setCurrentTag(e.target.value)}
-                      className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                      className={`flex-1 rounded-lg border ${errors.tags ? 'border-error-500' : 'border-gray-300'} shadow-sm focus:border-secondary-500 focus:ring-secondary-500`}
                       placeholder="Add relevant tags (e.g., AI, NLP, Computer Vision)"
                       onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                     />
@@ -315,6 +380,9 @@ const CreateChallengePage = () => {
                       </Badge>
                     ))}
                   </div>
+                  {errors.tags && (
+                    <p className="text-sm text-error-600">{errors.tags}</p>
+                  )}
                 </div>
 
                 {/* Requirements */}
@@ -335,8 +403,9 @@ const CreateChallengePage = () => {
                             const newReqs = [...formData.requirements];
                             newReqs[index] = e.target.value;
                             setFormData({ ...formData, requirements: newReqs });
+                            setErrors({ ...errors, requirements: '' });
                           }}
-                          className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                          className={`flex-1 rounded-lg border ${errors.requirements ? 'border-error-500' : 'border-gray-300'} shadow-sm focus:border-secondary-500 focus:ring-secondary-500`}
                           placeholder={`Requirement ${index + 1}`}
                         />
                         {formData.requirements.length > 1 && (
@@ -352,6 +421,9 @@ const CreateChallengePage = () => {
                       </div>
                     ))}
                   </div>
+                  {errors.requirements && (
+                    <p className="text-sm text-error-600">{errors.requirements}</p>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -367,9 +439,12 @@ const CreateChallengePage = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <label className="block text-sm font-medium text-gray-700">
-                      Evaluation Criteria
+                      <span className="flex items-center gap-2">
+                        <Info size={16} />
+                        Evaluation Criteria
+                      </span>
                     </label>
-                    <span className={`text-sm ${validateWeights() ? 'text-success-600' : 'text-error-600'}`}>
+                    <span className={`text-sm font-medium ${validateWeights() ? 'text-success-600' : 'text-error-600'}`}>
                       Total Weight: {formData.evaluationCriteria.reduce((sum, criterion) => sum + criterion.weight, 0)}%
                     </span>
                   </div>
@@ -403,7 +478,7 @@ const CreateChallengePage = () => {
                                 newCriteria[index] = { ...criterion, name: e.target.value };
                                 setFormData({ ...formData, evaluationCriteria: newCriteria });
                               }}
-                              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                              className="w-full rounded-lg border border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
                               placeholder="e.g., Technical Implementation"
                               required
                             />
@@ -423,7 +498,7 @@ const CreateChallengePage = () => {
                                 newCriteria[index] = { ...criterion, weight: Number(e.target.value) };
                                 setFormData({ ...formData, evaluationCriteria: newCriteria });
                               }}
-                              className="w-full rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                              className="w-full rounded-lg border border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
                               required
                             />
                           </div>
@@ -440,7 +515,7 @@ const CreateChallengePage = () => {
                               newCriteria[index] = { ...criterion, description: e.target.value };
                               setFormData({ ...formData, evaluationCriteria: newCriteria });
                             }}
-                            className="w-full rounded-lg border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                            className="w-full rounded-lg border border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
                             rows={2}
                             placeholder="Describe how this criterion will be evaluated"
                             required
@@ -449,6 +524,9 @@ const CreateChallengePage = () => {
                       </div>
                     ))}
                   </div>
+                  {errors.evaluationCriteria && (
+                    <p className="text-sm text-error-600">{errors.evaluationCriteria}</p>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
