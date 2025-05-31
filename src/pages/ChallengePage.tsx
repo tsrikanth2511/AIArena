@@ -47,11 +47,11 @@ const ChallengePage = () => {
             title: challengeData.title,
             description: challengeData.description,
             company: {
-              id: challengeData.company.id,
-              name: challengeData.company.full_name || 'Unknown Company',
-              logo: challengeData.company.avatar_url || `https://ui-avatars.com/api/?name=${challengeData.company.full_name}`,
-              description: challengeData.company.company_details?.description,
-              website: challengeData.company.company_details?.website,
+              id: challengeData.company?.id || challengeData.company_id,
+              name: challengeData.company?.full_name || 'Unknown Company',
+              logo: challengeData.company?.avatar_url || `https://ui-avatars.com/api/?name=Unknown+Company`,
+              description: challengeData.company?.company_details?.description,
+              website: challengeData.company?.company_details?.website,
             },
             deadline: challengeData.deadline,
             prizeMoney: challengeData.prize_money,
@@ -480,16 +480,18 @@ const ChallengePage = () => {
             >
               Submit Your Solution
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              as="a"
-              href="#"
+            <Link
+              to="#"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Download Resources
-            </Button>
+              <Button
+                variant="outline"
+                size="lg"
+              >
+                Download Resources
+              </Button>
+            </Link>
           </div>
         )}
       </div>

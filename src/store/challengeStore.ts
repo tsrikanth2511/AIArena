@@ -35,17 +35,10 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
   fetchChallenges: async () => {
     set({ isLoading: true, error: null });
     try {
+      // First fetch all challenges
       const { data: challengesData, error } = await supabase
         .from('challenges')
-        .select(`
-          *,
-          company:company_id (
-            id,
-            full_name,
-            avatar_url,
-            company_details
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -54,12 +47,29 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
         throw new Error('No challenges data received');
       }
 
+      console.log('Challenges data:', challengesData); // Debug log
+
       // Update status based on deadline
       const now = new Date();
       const updatedChallenges = await Promise.all(challengesData.map(async (challengeData) => {
-        if (!challengeData || !challengeData.company) {
+        if (!challengeData) {
           console.error('Invalid challenge data:', challengeData);
           return null;
+        }
+
+        console.log('Fetching company data for company_id:', challengeData.company_id); // Debug log
+
+        // Fetch company data using company_id from profiles table
+        const { data: companyData, error: companyError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, company_details')
+          .eq('id', challengeData.company_id)
+          .eq('role', 'company') // Add role filter to ensure we get company profiles
+          .maybeSingle();
+
+        console.log('Company data response:', companyData); // Debug log
+        if (companyError) {
+          console.error('Error fetching company data:', companyError);
         }
 
         const deadline = new Date(challengeData.deadline);
@@ -67,7 +77,6 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
 
         if (deadline < now && challengeData.status !== 'Completed') {
           newStatus = 'Completed';
-          // Update status in database
           await supabase
             .from('challenges')
             .update({ status: 'Completed' })
@@ -75,7 +84,6 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
         } else if (deadline > now && challengeData.status === 'Upcoming' && 
                   deadline.getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000) {
           newStatus = 'Active';
-          // Update status in database
           await supabase
             .from('challenges')
             .update({ status: 'Active' })
@@ -87,11 +95,11 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
           title: challengeData.title,
           description: challengeData.description,
           company: {
-            id: challengeData.company.id,
-            name: challengeData.company.full_name || 'Unknown Company',
-            logo: challengeData.company.avatar_url || `https://ui-avatars.com/api/?name=${challengeData.company.full_name}`,
-            description: challengeData.company.company_details?.description,
-            website: challengeData.company.company_details?.website,
+            id: companyData?.id || challengeData.company_id,
+            name: companyData?.full_name || 'Unknown Company',
+            logo: companyData?.avatar_url || `https://ui-avatars.com/api/?name=${companyData?.full_name || 'Unknown+Company'}`,
+            description: companyData?.company_details?.description,
+            website: companyData?.company_details?.website,
           },
           deadline: challengeData.deadline,
           prizeMoney: challengeData.prize_money,
@@ -105,7 +113,9 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
       }));
 
       // Filter out any null values from invalid data
-      const validChallenges = updatedChallenges.filter((c): c is Challenge => c !== null);
+      const validChallenges = updatedChallenges.filter((c): c is NonNullable<typeof c> => c !== null);
+
+      console.log('Final processed challenges:', validChallenges); // Debug log
 
       set({
         challenges: validChallenges,

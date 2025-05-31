@@ -4,9 +4,14 @@ import ChallengeCard from '../components/challenges/ChallengeCard';
 import ChallengeFilters from '../components/challenges/ChallengeFilters';
 import Button from '../components/ui/Button';
 import { RefreshCw } from 'lucide-react';
+import { useEffect } from 'react';
 
 const ChallengesPage = () => {
   const { filteredChallenges, isLoading, error, fetchChallenges } = useChallengeStore();
+
+  useEffect(() => {
+    fetchChallenges();
+  }, [fetchChallenges]);
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">

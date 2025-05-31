@@ -12,13 +12,11 @@ const NotFoundPage = () => {
           Sorry, we couldn't find the page you're looking for.
         </p>
         <div className="mt-8">
-          <Button
-            as={Link}
-            to="/"
-            leftIcon={<ArrowLeft size={16} />}
-          >
-            Back to home
-          </Button>
+          <Link to="/">
+            <Button leftIcon={<ArrowLeft size={16} />}>
+              Back to home
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
