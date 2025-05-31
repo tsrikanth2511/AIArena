@@ -16,6 +16,8 @@ interface AuthState {
     name: string;
     website?: string;
     description?: string;
+    industry?: string;
+    size?: string;
   }) => Promise<void>;
   registerWithGithub: (role: UserRole) => Promise<void>;
   registerWithGoogle: (role: UserRole) => Promise<void>;
@@ -51,7 +53,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             id: session.user.id,
             email: session.user.email!,
             name: profile.full_name || session.user.email!.split('@')[0],
-            role: profile.role || 'individual',
+            role: profile.role,
             avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
             bio: profile.bio || '',
             githubUrl: profile.github_url || '',
@@ -70,10 +72,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
             error: null
           });
+          
+          return userData;
         }
       }
+      set({ isAuthenticated: false, user: null, isLoading: false });
     } catch (error) {
-      console.error('Error initializing auth:', error);
       set({ 
         isAuthenticated: false, 
         user: null, 
@@ -108,7 +112,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         id: data.session.user.id,
         email: data.session.user.email!,
         name: profile.full_name || data.session.user.email!.split('@')[0],
-        role: profile.role || 'individual',
+        role: profile.role,
         avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
         bio: profile.bio || '',
         githubUrl: profile.github_url || '',
@@ -128,17 +132,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null
       });
 
-      toast.success('Login successful!');
       return userData;
     } catch (error: any) {
-      console.error('Login error:', error);
       set({ 
-        error: error.message || 'Failed to login',
+        error: error.message,
         isLoading: false,
         isAuthenticated: false,
         user: null
       });
-      toast.error('Login failed. Please check your credentials.');
       throw error;
     }
   },
@@ -146,7 +147,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithGithub: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -154,10 +155,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       if (error) throw error;
-      return;
     } catch (error: any) {
-      set({ error: error.message || 'Failed to login with GitHub' });
-      toast.error('GitHub login failed. Please try again.');
+      set({ error: error.message });
       throw error;
     } finally {
       set({ isLoading: false });
@@ -167,7 +166,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginWithGoogle: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -175,18 +174,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       if (error) throw error;
-      return;
     } catch (error: any) {
-      set({ error: error.message || 'Failed to login with Google' });
-      toast.error('Google login failed. Please try again.');
+      set({ error: error.message });
       throw error;
     } finally {
       set({ isLoading: false });
     }
   },
-  
+
   logout: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true });
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -194,91 +191,134 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user: null,
         isAuthenticated: false,
-        error: null,
+        isLoading: false,
+        error: null
       });
       
-      toast.success('Logged out successfully');
       window.location.href = '/';
     } catch (error: any) {
-      console.error('Logout error:', error);
-      set({ error: error.message || 'Failed to logout' });
-      toast.error('Failed to logout');
+      set({ 
+        error: error.message,
+        isLoading: false
+      });
       throw error;
-    } finally {
-      set({ isLoading: false });
     }
   },
-  
+
   register: async (name, email, password, role, companyDetails) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // First create the auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            name,
-            role,
-            companyDetails,
+            full_name: name,
+            role: role,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Failed to create user');
+
+      // Then create the profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            id: authData.user.id,
+            full_name: name,
+            email,
+            role: role,
+            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+            career_score: 0,
+            badges: [],
+            company_details: role === 'company' ? companyDetails : null,
+          },
+        ]);
+
+      if (profileError) {
+        // If profile creation fails, clean up the auth user
+        await supabase.auth.signOut();
+        throw profileError;
+      }
+
+      const userData = {
+        id: authData.user.id,
+        email: authData.user.email!,
+        name,
+        role,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+        careerScore: 0,
+        badges: [],
+        joinedAt: authData.user.created_at,
+        companyDetails: role === 'company' ? companyDetails : null,
+        user_metadata: authData.user.user_metadata
+      };
+
+      set({
+        user: userData,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null
+      });
+
+      return;
+    } catch (error: any) {
+      set({ 
+        error: error.message,
+        isLoading: false,
+        isAuthenticated: false,
+        user: null
+      });
+      throw error;
+    }
+  },
+
+  registerWithGithub: async (role: UserRole) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            role: role,
+          },
         },
       });
       
       if (error) throw error;
-
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              full_name: name,
-              email,
-              role : role,
-              avatar_url: `https://ui-avatars.com/api/?name=${name}`,
-              career_score: 0,
-              badges: [],
-              company_details: companyDetails,
-            },
-          ]);
-
-        if (profileError) throw profileError;
-
-        set({
-          user: {
-            id: data.user.id,
-            email: data.user.email!,
-            name,
-            role: role,
-            avatar: `https://ui-avatars.com/api/?name=${name}`,
-            careerScore: 0,
-            badges: [],
-            joinedAt: data.user.created_at,
-            companyDetails,
-            user_metadata: data.user.user_metadata
-          },
-          isAuthenticated: true,
-          error: null,
-        });
-
-        toast.success('Registration successful!');
-      }
     } catch (error: any) {
-      set({ error: error.message || 'Failed to register' });
-      toast.error('Registration failed. Please try again.');
+      set({ error: error.message });
       throw error;
     } finally {
       set({ isLoading: false });
     }
   },
 
-  registerWithGithub: async (role: UserRole) => {
-    await useAuthStore.getState().loginWithGithub();
-  },
-
   registerWithGoogle: async (role: UserRole) => {
-    await useAuthStore.getState().loginWithGoogle();
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            role: role,
+          },
+        },
+      });
+      
+      if (error) throw error;
+    } catch (error: any) {
+      set({ error: error.message });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   updateProfile: async (profileData) => {
@@ -309,56 +349,100 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           githubUrl: profileData.githubUrl,
           portfolioUrl: profileData.portfolioUrl,
         } : null,
+        isLoading: false,
+        error: null
       }));
-
-      toast.success('Profile updated successfully');
     } catch (error: any) {
-      console.error('Profile update error:', error);
-      set({ error: error.message || 'Failed to update profile' });
-      toast.error('Failed to update profile');
+      set({ 
+        error: error.message,
+        isLoading: false
+      });
       throw error;
-    } finally {
-      set({ isLoading: false });
     }
   },
 }));
 
-// Set up auth state listener
+// Auth state listener
 supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
     useAuthStore.setState({
       user: null,
       isAuthenticated: false,
-      error: null,
+      isLoading: false,
+      error: null
     });
-  } else if (session?.user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
+  } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+    if (session?.user) {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
 
-    if (profile) {
-      useAuthStore.setState({
-        user: {
-          id: session.user.id,
-          email: session.user.email!,
-          name: profile.full_name || session.user.email!.split('@')[0],
-          role: profile.role || 'individual',
-          avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
-          bio: profile.bio || '',
-          githubUrl: profile.github_url || '',
-          githubUsername: profile.github_username || '',
-          portfolioUrl: profile.portfolio_url || '',
-          careerScore: profile.career_score || 0,
-          badges: profile.badges || [],
-          joinedAt: session.user.created_at,
-          companyDetails: profile.company_details,
-          user_metadata: session.user.user_metadata
-        },
-        isAuthenticated: true,
-        error: null,
-      });
+        if (profileError || !profile) {
+          // If no profile exists, create one
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: session.user.id,
+                full_name: session.user.user_metadata.full_name || session.user.email?.split('@')[0],
+                email: session.user.email,
+                role: session.user.user_metadata.role || 'individual',
+                avatar_url: session.user.user_metadata.avatar_url || `https://ui-avatars.com/api/?name=${session.user.user_metadata.full_name || session.user.email?.split('@')[0]}`,
+                career_score: 0,
+                badges: [],
+                company_details: session.user.user_metadata.role === 'company' ? session.user.user_metadata.companyDetails : null,
+              },
+            ]);
+
+          if (insertError) throw insertError;
+          
+          // Fetch the newly created profile
+          const { data: newProfile, error: newProfileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (newProfileError || !newProfile) throw newProfileError || new Error('Failed to fetch new profile');
+          
+          profile = newProfile;
+        }
+
+        useAuthStore.setState({
+          user: {
+            id: session.user.id,
+            email: session.user.email!,
+            name: profile.full_name || session.user.email!.split('@')[0],
+            role: profile.role,
+            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
+            bio: profile.bio || '',
+            githubUrl: profile.github_url || '',
+            githubUsername: profile.github_username || '',
+            portfolioUrl: profile.portfolio_url || '',
+            careerScore: profile.career_score || 0,
+            badges: profile.badges || [],
+            joinedAt: session.user.created_at,
+            companyDetails: profile.company_details,
+            user_metadata: session.user.user_metadata
+          },
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+        });
+      } catch (error) {
+        console.error('Error in auth state change:', error);
+        useAuthStore.setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: 'Failed to load user profile'
+        });
+      }
     }
   }
 });
+
+export default useAuthStore;
