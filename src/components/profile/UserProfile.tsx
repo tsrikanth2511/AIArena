@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Github, Globe, Award, ArrowUpRight } from 'lucide-react';
+import { User, Mail, Github, Globe, Building, ArrowUpRight } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { useAuthStore } from '../../store/authStore';
@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 const UserProfile = () => {
   const { user, updateProfile } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('submissions');
+  const [activeTab, setActiveTab] = useState('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -20,30 +20,16 @@ const UserProfile = () => {
     );
   }
 
-  const tabs = [
+  const isCompany = user.role === 'company';
+  
+  const tabs = isCompany ? [
+    { id: 'profile', label: 'Company Profile' },
+    { id: 'settings', label: 'Profile Settings' }
+  ] : [
+    { id: 'profile', label: 'Profile' },
     { id: 'submissions', label: 'My Submissions' },
     { id: 'badges', label: 'Badges & Achievements' },
-    { id: 'settings', label: 'Profile Settings' },
-  ];
-  
-  // Mock submissions data
-  const submissions = [
-    {
-      id: 's1',
-      challengeTitle: 'Build a Real-Time Financial Sentiment Analyzer',
-      company: 'FinTech Innovations',
-      submittedAt: '2024-04-20T14:30:00Z',
-      score: 88,
-      status: 'Scored'
-    },
-    {
-      id: 's2',
-      challengeTitle: 'Create an AI Writing Assistant for Technical Documentation',
-      company: 'DevTools Inc',
-      submittedAt: '2024-03-15T09:45:00Z',
-      score: 92,
-      status: 'Scored'
-    }
+    { id: 'settings', label: 'Profile Settings' }
   ];
 
   const handleProfileUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -75,15 +61,13 @@ const UserProfile = () => {
     <div className="bg-white shadow rounded-lg overflow-hidden">
       {/* Profile header */}
       <div className="relative">
-        {/* Cover background */}
         <div className="h-32 bg-gradient-to-r from-primary-600 to-secondary-600"></div>
         
-        {/* Profile info */}
         <div className="px-4 sm:px-6 lg:px-8 pb-5">
           <div className="flex flex-col sm:flex-row sm:items-end -mt-12">
             <div className="flex-shrink-0 relative">
               <img
-                className="h-24 w-24 rounded-full border-4 border-white bg-white"
+                className="h-24 w-24 rounded-full border-4 border-white bg-white object-cover"
                 src={user.avatar}
                 alt={user.name}
               />
@@ -109,7 +93,7 @@ const UserProfile = () => {
                 {user.portfolioUrl && (
                   <a href={user.portfolioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-secondary-600">
                     <Globe size={14} className="mr-1" />
-                    Portfolio
+                    {isCompany ? 'Website' : 'Portfolio'}
                     <ArrowUpRight size={12} className="ml-1" />
                   </a>
                 )}
@@ -123,30 +107,55 @@ const UserProfile = () => {
             </div>
           </div>
           
-          {/* Stats cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <div className="text-sm text-gray-500">Career Score</div>
-              <div className="text-2xl font-bold text-primary-900">{user.careerScore}</div>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <div className="text-sm text-gray-500">Submissions</div>
-              <div className="text-2xl font-bold text-primary-900">{submissions.length}</div>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <div className="text-sm text-gray-500">Badges</div>
-              <div className="text-2xl font-bold text-primary-900">{user.badges.length}</div>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <div className="text-sm text-gray-500">Member Since</div>
-              <div className="text-lg font-medium text-primary-900">
-                {new Date(user.joinedAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  year: 'numeric'
-                })}
+          {/* Stats cards - Only show for individual users */}
+          {!isCompany && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="text-sm text-gray-500">Career Score</div>
+                <div className="text-2xl font-bold text-primary-900">{user.careerScore}</div>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="text-sm text-gray-500">Submissions</div>
+                <div className="text-2xl font-bold text-primary-900">2</div>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="text-sm text-gray-500">Badges</div>
+                <div className="text-2xl font-bold text-primary-900">{user.badges.length}</div>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="text-sm text-gray-500">Member Since</div>
+                <div className="text-lg font-medium text-primary-900">
+                  {new Date(user.joinedAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                </div>
               </div>
             </div>
-          </div>
+          )}
+          
+          {/* Company Info - Only show for companies */}
+          {isCompany && user.companyDetails && (
+            <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center mb-4">
+                <Building size={20} className="text-gray-400 mr-2" />
+                <h3 className="text-lg font-medium text-gray-900">Company Information</h3>
+              </div>
+              <p className="text-gray-600">{user.companyDetails.description}</p>
+              {user.companyDetails.website && (
+                <a
+                  href={user.companyDetails.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center text-secondary-600 hover:text-secondary-700"
+                >
+                  <Globe size={16} className="mr-1" />
+                  Visit Website
+                  <ArrowUpRight size={14} className="ml-1" />
+                </a>
+              )}
+            </div>
+          )}
           
           {/* Tabs */}
           <div className="mt-8 border-b border-gray-200">
@@ -172,76 +181,62 @@ const UserProfile = () => {
       
       {/* Tab content */}
       <div className="p-4 sm:p-6 lg:p-8">
-        {activeTab === 'submissions' && (
+        {activeTab === 'profile' && (
           <div>
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Submissions</h2>
-            
-            {submissions.length === 0 ? (
-              <p className="text-gray-500 text-center py-6">You haven't submitted any challenges yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {submissions.map((submission) => (
-                  <motion.div
-                    key={submission.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h3 className="text-base font-medium text-gray-900">{submission.challengeTitle}</h3>
-                        <p className="text-sm text-gray-500">
-                          {submission.company} · Submitted {new Date(submission.submittedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="mt-2 sm:mt-0 flex items-center">
-                        <div className="bg-gray-100 px-3 py-1 rounded-full text-sm font-medium text-gray-800 mr-2">
-                          Score: {submission.score}/100
-                        </div>
-                        <Badge variant={submission.status === 'Scored' ? 'success' : 'warning'}>
-                          {submission.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
+            <h2 className="text-lg font-medium text-gray-900 mb-4">
+              {isCompany ? 'About the Company' : 'About Me'}
+            </h2>
+            <p className="text-gray-600">
+              {user.bio || `No ${isCompany ? 'company description' : 'bio'} provided yet.`}
+            </p>
           </div>
         )}
         
-        {activeTab === 'badges' && (
-          <div>
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Badges & Achievements</h2>
-            
-            {user.badges.length === 0 ? (
-              <p className="text-gray-500 text-center py-6">You haven't earned any badges yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {user.badges.map((badge) => (
-                  <motion.div
-                    key={badge.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white border border-gray-200 rounded-lg p-4 flex items-center"
-                  >
-                    <div className="flex-shrink-0 mr-3">
-                      <div className="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center">
-                        <Award size={24} className="text-secondary-600" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-base font-medium text-gray-900">{badge.name}</h3>
-                      <p className="text-sm text-gray-500">{badge.description}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Earned {new Date(badge.earnedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
+        {/* Individual-specific tabs */}
+        {!isCompany && (
+          <>
+            {activeTab === 'submissions' && (
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Submissions</h2>
+                <div className="space-y-4">
+                  {/* Add submissions list here */}
+                  <p className="text-gray-500 text-center py-6">No submissions yet.</p>
+                </div>
               </div>
             )}
-          </div>
+            
+            {activeTab === 'badges' && (
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Badges & Achievements</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {user.badges.length === 0 ? (
+                    <p className="text-gray-500 text-center py-6 col-span-full">
+                      No badges earned yet. Start participating in challenges to earn badges!
+                    </p>
+                  ) : (
+                    user.badges.map((badge) => (
+                      <div
+                        key={badge.id}
+                        className="bg-white border border-gray-200 rounded-lg p-4"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center">
+                              <span className="text-secondary-600 text-lg">{badge.icon}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-900">{badge.name}</h3>
+                            <p className="text-xs text-gray-500">{badge.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
         
         {activeTab === 'settings' && (
@@ -253,8 +248,11 @@ const UserProfile = () => {
                   {error}
                 </div>
               )}
+              
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                  {isCompany ? 'Company Name' : 'Full Name'}
+                </label>
                 <input
                   type="text"
                   id="name"
@@ -265,7 +263,9 @@ const UserProfile = () => {
               </div>
               
               <div>
-                <label htmlFor="bio" className="block text-sm font-medium text-gray-700">Bio</label>
+                <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
+                  {isCompany ? 'Company Description' : 'Bio'}
+                </label>
                 <textarea
                   id="bio"
                   name="bio"
@@ -275,9 +275,11 @@ const UserProfile = () => {
                 ></textarea>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {!isCompany && (
                 <div>
-                  <label htmlFor="github" className="block text-sm font-medium text-gray-700">GitHub URL</label>
+                  <label htmlFor="github" className="block text-sm font-medium text-gray-700">
+                    GitHub URL
+                  </label>
                   <input
                     type="url"
                     id="github"
@@ -286,17 +288,19 @@ const UserProfile = () => {
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
                   />
                 </div>
-                
-                <div>
-                  <label htmlFor="portfolio" className="block text-sm font-medium text-gray-700">Portfolio URL</label>
-                  <input
-                    type="url"
-                    id="portfolio"
-                    name="portfolio"
-                    defaultValue={user.portfolioUrl}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
-                  />
-                </div>
+              )}
+              
+              <div>
+                <label htmlFor="portfolio" className="block text-sm font-medium text-gray-700">
+                  {isCompany ? 'Website URL' : 'Portfolio URL'}
+                </label>
+                <input
+                  type="url"
+                  id="portfolio"
+                  name="portfolio"
+                  defaultValue={user.portfolioUrl}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-secondary-500 focus:border-secondary-500 sm:text-sm"
+                />
               </div>
               
               <div className="flex justify-end">
