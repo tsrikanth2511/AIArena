@@ -78,13 +78,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({
             isAuthenticated: true,
             user: userData,
-            isLoading: false
+            isLoading: false,
+            error: null
           });
         }
       }
     } catch (error) {
       console.error('Error initializing auth:', error);
-      set({ isAuthenticated: false, user: null, isLoading: false });
+      set({ 
+        isAuthenticated: false, 
+        user: null, 
+        isLoading: false,
+        error: 'Failed to initialize authentication'
+      });
     }
   },
 
@@ -255,6 +261,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             badges: [],
             joinedAt: data.user.created_at,
             companyDetails,
+            user_metadata: data.user.user_metadata
           },
           isAuthenticated: true,
           error: null,
@@ -307,8 +314,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           companyDetails: profileData.companyDetails,
         } : null,
       }));
+
+      toast.success('Profile updated successfully');
     } catch (error: any) {
+      console.error('Profile update error:', error);
       set({ error: error.message || 'Failed to update profile' });
+      toast.error('Failed to update profile');
       throw error;
     } finally {
       set({ isLoading: false });
