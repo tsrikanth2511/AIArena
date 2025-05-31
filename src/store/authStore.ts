@@ -9,8 +9,8 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<User | null>;
-  loginWithGithub: () => Promise<User | null>;
-  loginWithGoogle: () => Promise<User | null>;
+  loginWithGithub: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole, companyDetails?: {
     name: string;
@@ -128,6 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null
       });
 
+      toast.success('Login successful!');
       return userData;
     } catch (error: any) {
       console.error('Login error:', error);
@@ -137,6 +138,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: false,
         user: null
       });
+      toast.error('Login failed. Please check your credentials.');
       throw error;
     }
   },
@@ -152,9 +154,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       if (error) throw error;
-      return null;
+      return;
     } catch (error: any) {
       set({ error: error.message || 'Failed to login with GitHub' });
+      toast.error('GitHub login failed. Please try again.');
       throw error;
     } finally {
       set({ isLoading: false });
@@ -172,9 +175,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       if (error) throw error;
-      return null;
+      return;
     } catch (error: any) {
       set({ error: error.message || 'Failed to login with Google' });
+      toast.error('Google login failed. Please try again.');
       throw error;
     } finally {
       set({ isLoading: false });
@@ -193,10 +197,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null,
       });
       
+      toast.success('Logged out successfully');
       window.location.href = '/';
     } catch (error: any) {
       console.error('Logout error:', error);
       set({ error: error.message || 'Failed to logout' });
+      toast.error('Failed to logout');
       throw error;
     } finally {
       set({ isLoading: false });
@@ -255,9 +261,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           error: null,
         });
+
+        toast.success('Registration successful!');
       }
     } catch (error: any) {
       set({ error: error.message || 'Failed to register' });
+      toast.error('Registration failed. Please try again.');
       throw error;
     } finally {
       set({ isLoading: false });
