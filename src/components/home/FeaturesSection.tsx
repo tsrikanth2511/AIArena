@@ -10,7 +10,7 @@ const features = [
   {
     icon: <Award className="h-6 w-6 text-secondary-500" />,
     title: 'Get Recognized',
-    description: 'Earn badges, win prizes, and build a public portfolio of accomplishments that demonstrate your skills to potential employers.'
+    description: 'Earn badges, win prizes, and build a public portfolio of accomplishments that demonstrate your skills.'
   },
   {
     icon: <BarChart3 className="h-6 w-6 text-secondary-500" />,
@@ -20,7 +20,7 @@ const features = [
   {
     icon: <Building className="h-6 w-6 text-secondary-500" />,
     title: 'Connect with Companies',
-    description: 'Get discovered by AI-centric companies looking to hire based on demonstrated abilities, not just resumes.'
+    description: 'Get discovered by companies looking to hire based on demonstrated abilities, not just resumes.'
   }
 ];
 
@@ -50,7 +50,7 @@ const FeaturesSection = () => {
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-primary-900">How It Works</h2>
           <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-            AI Challenge Arena connects builders with real-world AI challenges and the companies who need their skills
+            Connect with real-world AI challenges and showcase your skills
           </p>
         </div>
 

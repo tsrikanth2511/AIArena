@@ -1,7 +1,6 @@
 import HeroSection from '../components/home/HeroSection';
 import FeaturesSection from '../components/home/FeaturesSection';
 import StatsSection from '../components/home/StatsSection';
-import TestimonialSection from '../components/home/TestimonialSection';
 import CallToAction from '../components/home/CallToAction';
 
 const HomePage = () => {
@@ -10,7 +9,6 @@ const HomePage = () => {
       <HeroSection />
       <FeaturesSection />
       <StatsSection />
-      <TestimonialSection />
       <CallToAction />
     </div>
   );

@@ -17,17 +17,13 @@ const CallToAction = () => {
           className="bg-gradient-to-r from-primary-900 via-primary-800 to-secondary-800 rounded-xl overflow-hidden shadow-xl"
         >
           <div className="relative px-6 py-12 md:p-12 lg:p-16">
-            {/* Background design elements */}
-            <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 rounded-full bg-secondary-500 opacity-10"></div>
-            <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-40 h-40 rounded-full bg-primary-600 opacity-10"></div>
-            
             <div className="relative z-10 md:flex md:items-center md:justify-between">
               <div className="mb-8 md:mb-0 md:max-w-2xl">
                 <h2 className="text-3xl md:text-4xl font-bold text-white">
                   Ready to showcase your AI building skills?
                 </h2>
                 <p className="mt-4 text-lg text-gray-200">
-                  Join thousands of builders proving their abilities through real-world AI challenges and get discovered by companies who care about what you can actually build.
+                  Join thousands of builders proving their abilities through real-world AI challenges.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row md:flex-col space-y-4 sm:space-y-0 sm:space-x-4 md:space-x-0 md:space-y-4">

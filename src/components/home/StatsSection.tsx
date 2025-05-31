@@ -33,24 +33,7 @@ const StatsSection = () => {
 
   return (
     <section className="py-16 bg-primary-900 text-white relative overflow-hidden">
-      {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-primary-900 via-primary-800 to-secondary-900 opacity-90"></div>
-
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-5">
-        {[...Array(10)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute h-40 w-40 border border-white rounded-full"
-            style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              transform: 'translate(-50%, -50%)',
-            }}
-          />
-        ))}
-      </div>
-
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <motion.div 
           className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center"
