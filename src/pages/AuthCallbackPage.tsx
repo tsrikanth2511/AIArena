@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 
 const AuthCallbackPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { initializeAuth, user } = useAuthStore();
   const location = useLocation();
 
   useEffect(() => {
@@ -15,8 +15,8 @@ const AuthCallbackPage = () => {
       if (data.session) {
         // User is already logged in via session
         try {
-          await login(); // Update store state
-          const from = location.state?.from?.pathname || '/';
+          await initializeAuth(); // Update store state
+          const from = location.state?.from?.pathname || (user?.role === 'company' ? '/company-portal' : '/challenges');
           navigate(from, { replace: true });
         } catch (error) {
           console.error('Error during auto-login with existing session:', error); // Keep this one for potential errors
@@ -34,8 +34,8 @@ const AuthCallbackPage = () => {
             if (exchangeError) throw exchangeError;
 
             // After exchanging code, session should be available, try to login again
-            await login();
-            const from = location.state?.from?.pathname || '/';
+            await initializeAuth();
+            const from = location.state?.from?.pathname || (user?.role === 'company' ? '/company-portal' : '/challenges');
             navigate(from, { replace: true });
 
           } catch (error) {
@@ -50,7 +50,7 @@ const AuthCallbackPage = () => {
     };
 
     handleAuth();
-  }, [login, navigate, location.search, location.state]);
+  }, [initializeAuth, navigate, location.search, location.state, user]);
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
