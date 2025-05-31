@@ -1,8 +1,29 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, X, Plus } from 'lucide-react';
+import Button from '../components/ui/Button';
+
+const SUGGESTED_TAGS = [
+  'Finance', 'Healthcare', 'NLP', 'Computer Vision', 'Real-time Data',
+  'LLM', 'Developer Tools', 'Content Generation', 'Diagnosis', 'Gen-AI'
+];
+
+const REQUIREMENT_TEMPLATES = [
+  'Must use TypeScript',
+  'Must include unit tests',
+  'Must be responsive',
+  'Must follow accessibility guidelines',
+  'Must include documentation'
+];
+
+// Define type for evaluation criteria
+interface EvaluationCriterion {
+  name: string;
+  description: string;
+  weight: number;
+}
 
 const CreateChallengePage = () => {
   const navigate = useNavigate();
@@ -19,7 +40,23 @@ const CreateChallengePage = () => {
     deadline: '',
     prize_money: '',
     difficulty: 'Beginner',
+    tags: [] as string[],
+    requirements: [] as string[],
+    evaluation_criteria: [] as EvaluationCriterion[],
   });
+
+  const [currentTagInput, setCurrentTagInput] = useState('');
+
+  // Add a default requirement input if the array is empty initially
+  React.useEffect(() => {
+    if (formData.requirements.length === 0) {
+      setFormData(prev => ({ ...prev, requirements: [''] }));
+    }
+    // Add a default evaluation criterion if the array is empty initially
+    if (formData.evaluation_criteria.length === 0) {
+      setFormData(prev => ({ ...prev, evaluation_criteria: [{ name: '', description: '', weight: 0 }] }));
+    }
+  }, [formData.requirements.length, formData.evaluation_criteria.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +64,9 @@ const CreateChallengePage = () => {
     setLoading(true);
 
     try {
+      // Ensure requirements is an array of strings
+      const requirementsArray = Array.isArray(formData.requirements) ? formData.requirements.filter(req => req.trim() !== '') : [];
+
       const { data: challenge, error: challengeError } = await supabase
         .from('challenges')
         .insert([
@@ -37,9 +77,9 @@ const CreateChallengePage = () => {
             deadline: new Date(formData.deadline).toISOString(),
             prize_money: parseInt(formData.prize_money),
             difficulty: formData.difficulty,
-            tags: selectedTags,
-            requirements: requirements.filter(req => req.trim() !== ''),
-            evaluation_criteria: [],
+            tags: formData.tags.filter(tag => tag.trim() !== ''),
+            requirements: requirementsArray,
+            evaluation_criteria: formData.evaluation_criteria.filter(c => c.name && c.description && c.weight >= 0),
           },
         ])
         .select()
@@ -77,23 +117,59 @@ const CreateChallengePage = () => {
   };
 
   const handleAddRequirement = () => {
-    setRequirements([...requirements, '']);
+    setFormData(prev => ({
+      ...prev,
+      requirements: [...prev.requirements, '']
+    }));
   };
 
   const handleRemoveRequirement = (index: number) => {
-    setRequirements(requirements.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      requirements: prev.requirements.filter((_, i) => i !== index)
+    }));
   };
 
   const handleRequirementChange = (index: number, value: string) => {
-    const newRequirements = [...requirements];
-    newRequirements[index] = value;
-    setRequirements(newRequirements);
+    setFormData(prev => ({
+      ...prev,
+      requirements: prev.requirements.map((req, i) => i === index ? value : req)
+    }));
   };
 
   const handleRequirementTemplate = (template: string, index: number) => {
     const newRequirements = [...requirements];
     newRequirements[index] = template;
     setRequirements(newRequirements);
+  };
+
+  // Functions for Evaluation Criteria
+  const handleAddCriterion = () => {
+    setFormData(prev => ({
+      ...prev,
+      evaluation_criteria: [...prev.evaluation_criteria, { name: '', description: '', weight: 0 }]
+    }));
+  };
+
+  const handleCriterionChange = (index: number, field: keyof EvaluationCriterion, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      evaluation_criteria: prev.evaluation_criteria.map((criterion, i) =>
+        i === index ? { ...criterion, [field]: value } : criterion
+      )
+    }));
+  };
+
+  const handleRemoveCriterion = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      evaluation_criteria: prev.evaluation_criteria.filter((_, i) => i !== index)
+    }));
+  };
+
+  const validateWeights = () => {
+    const totalWeight = formData.evaluation_criteria.reduce((sum, criterion) => sum + criterion.weight, 0);
+    return totalWeight === 100;
   };
 
   return (
@@ -149,12 +225,13 @@ const CreateChallengePage = () => {
                       Deadline
                     </label>
                     <input
-                      type="datetime-local"
+                      type="date"
+                      name="deadline"
                       id="deadline"
                       required
                       value={formData.deadline}
                       onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
 
@@ -248,40 +325,24 @@ const CreateChallengePage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Requirements
                   </label>
-                  <div className="space-y-4">
-                    {requirements.map((req, index) => (
-                      <div key={index} className="relative">
-                        <textarea
-                          value={req}
+                  <div className="space-y-2">
+                    {formData.requirements.map((requirement, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={requirement}
                           onChange={(e) => handleRequirementChange(index, e.target.value)}
-                          placeholder="Enter a requirement"
-                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500 sm:text-sm pr-10"
-                          rows={2}
+                          placeholder="Enter requirement"
+                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
-                        <div className="absolute right-2 top-2">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveRequirement(index)}
-                            className="text-gray-400 hover:text-error-500"
-                            disabled={requirements.length === 1}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                        <div className="mt-2">
-                          <select
-                            onChange={(e) => handleRequirementTemplate(e.target.value, index)}
-                            value=""
-                            className="text-sm text-gray-500 border-gray-300 rounded-md shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
-                          >
-                            <option value="">Select a template...</option>
-                            {REQUIREMENT_TEMPLATES.map((template) => (
-                              <option key={template} value={template}>
-                                {template}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRequirement(index)}
+                          className="p-2 text-gray-400 hover:text-gray-600"
+                          disabled={formData.requirements.length === 1}
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     ))}
                     <Button
@@ -293,6 +354,97 @@ const CreateChallengePage = () => {
                     >
                       Add Requirement
                     </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Evaluation Criteria
+                  </label>
+                  <div className="space-y-4">
+                    {formData.evaluation_criteria.map((criterion, index) => (
+                      <div key={index} className="space-y-3 p-4 border border-gray-200 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-medium text-gray-900">Criterion {index + 1}</h4>
+                          {formData.evaluation_criteria.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCriterion(index)}
+                              className="text-error-600 hover:text-error-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={formData.evaluation_criteria.length <= 1}
+                            >
+                              <span className="sr-only">Remove criterion</span>
+                              <X size={16} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Name
+                            </label>
+                            <input
+                              type="text"
+                              value={criterion.name}
+                              onChange={(e) => handleCriterionChange(index, 'name', e.target.value)}
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                              placeholder="e.g., Writing Quality"
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Weight (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={criterion.weight}
+                              onChange={(e) => handleCriterionChange(index, 'weight', Number(e.target.value))}
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Description
+                          </label>
+                          <textarea
+                            value={criterion.description}
+                            onChange={(e) => handleCriterionChange(index, 'description', e.target.value)}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                            rows={2}
+                            placeholder="e.g., How much does the tool improve documentation quality?"
+                            required
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex items-center justify-between mt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleAddCriterion}
+                        leftIcon={<Plus size={16} />}
+                      >
+                        Add Criterion
+                      </Button>
+
+                      <div className="text-sm text-gray-600">
+                        Total Weight: {formData.evaluation_criteria.reduce((sum, criterion) => sum + criterion.weight, 0)}%
+                        {!validateWeights() && formData.evaluation_criteria.length > 0 && (
+                          <span className="ml-2 text-error-600">
+                            (Total must equal 100%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -307,7 +459,7 @@ const CreateChallengePage = () => {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !validateWeights() || formData.evaluation_criteria.length === 0}
                 >
                   {loading ? 'Creating...' : 'Create Challenge'}
                 </Button>

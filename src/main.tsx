@@ -17,6 +17,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import CompanyDashboardPage from './pages/CompanyDashboardPage';
 import CreateChallengePage from './pages/CreateChallengePage';
+import EditChallengePage from './pages/EditChallengePage';
 
 const router = createBrowserRouter([
   {
@@ -58,6 +59,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <CreateChallengePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/company/challenges/edit/:id',
+        element: (
+          <ProtectedRoute>
+            <EditChallengePage />
           </ProtectedRoute>
         ),
       },

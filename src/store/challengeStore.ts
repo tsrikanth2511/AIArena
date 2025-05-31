@@ -47,17 +47,12 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
         throw new Error('No challenges data received');
       }
 
-      console.log('Challenges data:', challengesData); // Debug log
-
       // Update status based on deadline
       const now = new Date();
       const updatedChallenges = await Promise.all(challengesData.map(async (challengeData) => {
         if (!challengeData) {
-          console.error('Invalid challenge data:', challengeData);
           return null;
         }
-
-        console.log('Fetching company data for company_id:', challengeData.company_id); // Debug log
 
         // Fetch company data using company_id from profiles table
         const { data: companyData, error: companyError } = await supabase
@@ -67,9 +62,8 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
           .eq('role', 'company') // Add role filter to ensure we get company profiles
           .maybeSingle();
 
-        console.log('Company data response:', companyData); // Debug log
         if (companyError) {
-          console.error('Error fetching company data:', companyError);
+          console.error('Error fetching company data:', companyError); // Keep this one for potential errors
         }
 
         const deadline = new Date(challengeData.deadline);
@@ -114,8 +108,6 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
 
       // Filter out any null values from invalid data
       const validChallenges = updatedChallenges.filter((c): c is NonNullable<typeof c> => c !== null);
-
-      console.log('Final processed challenges:', validChallenges); // Debug log
 
       set({
         challenges: validChallenges,

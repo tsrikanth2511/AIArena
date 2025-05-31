@@ -140,6 +140,17 @@ const ChallengePage = () => {
           Back to {isOwner ? "Dashboard" : "Challenges"}
         </Link>
         
+        {/* Edit button for owner */}
+        {isOwner && (
+          <div className="flex justify-end mb-4">
+            <Link to={`/company/challenges/edit/${challenge.id}`}>
+              <Button variant="outline">
+                Edit Challenge
+              </Button>
+            </Link>
+          </div>
+        )}
+        
         {/* Challenge header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
