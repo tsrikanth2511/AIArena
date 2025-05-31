@@ -19,7 +19,9 @@ export interface User {
     name: string;
     website?: string;
     description?: string;
-  };
+    industry?: string;
+    size?: string;
+  } | null;
   user_metadata?: UserMetadata;
 }
 

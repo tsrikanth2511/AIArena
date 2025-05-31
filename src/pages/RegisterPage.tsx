@@ -83,7 +83,12 @@ const RegisterPage = () => {
         formData.role,
         formData.role === 'company' ? formData.companyDetails : undefined
       );
-      navigate('/challenges');
+      // Redirect based on role
+      if (formData.role === 'company') {
+        navigate('/company/dashboard');
+      } else {
+        navigate('/challenges');
+      }
     } catch (error) {
       console.error('Registration failed:', error);
       setErrors({ 
@@ -96,7 +101,7 @@ const RegisterPage = () => {
   const handleGithubRegister = async () => {
     try {
       await registerWithGithub(formData.role);
-      navigate('/challenges');
+      // Role check will happen in auth callback
     } catch (error) {
       console.error('GitHub registration failed:', error);
     }
@@ -105,7 +110,7 @@ const RegisterPage = () => {
   const handleGoogleRegister = async () => {
     try {
       await registerWithGoogle(formData.role);
-      navigate('/challenges');
+      // Role check will happen in auth callback
     } catch (error) {
       console.error('Google registration failed:', error);
     }

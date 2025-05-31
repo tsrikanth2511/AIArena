@@ -16,10 +16,10 @@ const AuthCallbackPage = () => {
         // User is already logged in via session
         try {
           await initializeAuth(); // Update store state
-          const from = location.state?.from?.pathname || (user?.role === 'company' ? '/company-portal' : '/challenges');
+          const from = location.state?.from?.pathname || (user?.role === 'company' ? '/company/dashboard' : '/challenges');
           navigate(from, { replace: true });
         } catch (error) {
-          console.error('Error during auto-login with existing session:', error); // Keep this one for potential errors
+          console.error('Error during auto-login with existing session:', error);
           navigate('/login', { replace: true });
         }
       } else {
@@ -35,11 +35,11 @@ const AuthCallbackPage = () => {
 
             // After exchanging code, session should be available, try to login again
             await initializeAuth();
-            const from = location.state?.from?.pathname || (user?.role === 'company' ? '/company-portal' : '/challenges');
+            const from = location.state?.from?.pathname || (user?.role === 'company' ? '/company/dashboard' : '/challenges');
             navigate(from, { replace: true });
 
           } catch (error) {
-            console.error('Error exchanging auth code:', error); // Keep this one for potential errors
+            console.error('Error exchanging auth code:', error);
             navigate('/login', { replace: true });
           }
         } else {
