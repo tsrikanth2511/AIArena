@@ -29,7 +29,7 @@ interface AuthState {
     portfolioUrl: string;
     githubUsername: string;
   }) => Promise<void>;
-  initializeAuth: () => Promise<void>;
+  initializeAuth: () => Promise<User | undefined>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data: profile } = await supabase
+        let { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
@@ -374,7 +374,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
     if (session?.user) {
       try {
-        const { data: profile, error: profileError } = await supabase
+        let { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
