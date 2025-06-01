@@ -120,7 +120,7 @@ const ChallengeFilters = () => {
         {hasActiveFilters && (
           <div className="mt-4 flex flex-wrap gap-2">
             {selectedStatus && (
-              <Badge variant="secondary" className="flex items-center">
+              <Badge variant="secondary\" className="flex items-center">
                 {selectedStatus}
                 <X
                   size={12}
