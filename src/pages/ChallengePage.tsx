@@ -114,18 +114,21 @@ const ChallengePage = () => {
     );
   }
 
+  const isOwner = user?.id === challenge.company.id;
+  const canSubmit = challenge.status === 'Active' && !isOwner && user?.role === 'individual';
+
+  // Define tabs based on user role
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <GanttChartSquare size={16} /> },
-    { id: 'submit', label: 'Submit Solution', icon: <Upload size={16} /> },
+    ...(user?.role === 'individual' ? [
+      { id: 'submit', label: 'Submit Solution', icon: <Upload size={16} /> }
+    ] : []),
     { id: 'leaderboard', label: 'Challenge Leaderboard', icon: <BarChart size={16} /> },
   ];
 
   const daysLeft = Math.ceil(
     (new Date(challenge.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
   );
-
-  const isOwner = user?.id === challenge.company.id;
-  const canSubmit = challenge.status === 'Active' && !isOwner && user?.role === 'individual';
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -304,7 +307,7 @@ const ChallengePage = () => {
             </div>
           )}
           
-          {activeTab === 'submit' && (
+          {activeTab === 'submit' && user?.role === 'individual' && (
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="text-center p-8">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">Submit Your Solution</h2>
@@ -313,8 +316,6 @@ const ChallengePage = () => {
                     <p className="text-gray-600 mb-4">
                       {challenge.status === 'Completed' 
                         ? 'This challenge has ended and is no longer accepting submissions.'
-                        : user?.role === 'company'
-                        ? 'Companies cannot submit solutions to challenges.'
                         : isOwner
                         ? 'You cannot submit to your own challenge.'
                         : 'This challenge is not currently accepting submissions.'}
