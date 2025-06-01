@@ -69,6 +69,7 @@ export interface Database {
           video_url: string | null
           score: number | null
           feedback: string | null
+          evaluation_result: string | null
           status: string
           created_at: string
           updated_at: string
@@ -82,6 +83,7 @@ export interface Database {
           video_url?: string | null
           score?: number | null
           feedback?: string | null
+          evaluation_result?: string | null
           status?: string
           created_at?: string
           updated_at?: string
@@ -95,6 +97,7 @@ export interface Database {
           video_url?: string | null
           score?: number | null
           feedback?: string | null
+          evaluation_result?: string | null
           status?: string
           created_at?: string
           updated_at?: string

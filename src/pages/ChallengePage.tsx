@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/authStore';
 import { formatDate, getDifficultyColor } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { Octokit } from '@octokit/rest';
 
 const ChallengePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,8 @@ const ChallengePage = () => {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchChallenge = async () => {
@@ -74,6 +77,171 @@ const ChallengePage = () => {
 
     fetchChallenge();
   }, [id]);
+
+  const evaluateSubmission = async (repoUrl: string) => {
+    if (!challenge) throw new Error('Challenge not found');
+    
+    try {
+      // Extract owner and repo from GitHub URL
+      const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (!match) throw new Error('Invalid GitHub URL');
+      const [, owner, repo] = match;
+
+      console.log('GitHub Repository Info:', { owner, repo });
+
+      // Create a unique folder name for this submission
+      const folderName = `submissions/${user?.id}/${challenge.id}/${Date.now()}`;
+      
+      // Clone the repository to Supabase storage
+      const { data: cloneData, error: cloneError } = await supabase.functions.invoke('clone-repo', {
+        body: { 
+          repoUrl,
+          folderName
+        }
+      });
+
+      if (cloneError) {
+        console.error('Clone error:', cloneError);
+        throw new Error(cloneError.message);
+      }
+      console.log('Repository cloned to storage:', cloneData);
+
+      // Get the repository contents from storage
+      const { data: files, error: listError } = await supabase
+        .storage
+        .from('repositories')
+        .list(folderName);
+
+      if (listError) throw listError;
+
+      // Function to read file contents from storage
+      const readFileContents = async (path: string) => {
+        const { data, error } = await supabase
+          .storage
+          .from('repositories')
+          .download(path);
+
+        if (error) {
+          console.warn(`Could not read file ${path}:`, error);
+          return null;
+        }
+
+        return await data.text();
+      };
+
+      // Process all files
+      const repositoryContents = await Promise.all(
+        files.map(async (file) => {
+          const content = await readFileContents(`${folderName}/${file.name}`);
+          return {
+            type: 'file',
+            name: file.name,
+            path: file.name,
+            content
+          };
+        })
+      );
+
+      console.log('Repository Contents:', repositoryContents);
+
+      // Prepare evaluation data
+      const evaluationData = {
+        repository: {
+          name: repo,
+          owner: owner,
+          contents: repositoryContents.filter(Boolean),
+        },
+        challenge: {
+          requirements: challenge.requirements,
+          evaluationCriteria: challenge.evaluationCriteria,
+        }
+      };
+
+      console.log('Sending to Groq API:', {
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: evaluationData
+      });
+
+      // Send to Groq for evaluation
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert code reviewer. Evaluate the project against the requirements and criteria. 
+              Provide a detailed analysis with scores for each criterion.`
+            },
+            {
+              role: 'user',
+              content: JSON.stringify(evaluationData)
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Groq API Response:', data);
+
+      // Clean up: Delete the cloned repository
+      
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error('Detailed error in evaluateSubmission:', error);
+      throw error;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    if (!challenge) {
+      toast.error('Challenge not found');
+      return;
+    }
+
+    e.preventDefault();
+    setIsEvaluating(true);
+    setEvaluationResult(null);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const repoUrl = formData.get('repo-url') as string;
+      
+      const evaluation = await evaluateSubmission(repoUrl);
+      setEvaluationResult(evaluation);
+      
+      // Save submission to database
+      const { error } = await supabase
+        .from('submissions')
+        .insert({
+          challenge_id: challenge.id,
+          user_id: user?.id,
+          repo_url: repoUrl,
+          deck_url: formData.get('deck-url') as string,
+          video_url: formData.get('video-url') as string,
+          evaluation_result: evaluation,
+        });
+
+      if (error) throw error;
+      
+      toast.success('Submission evaluated successfully!');
+    } catch (error) {
+      console.error('Error submitting solution:', error);
+      toast.error('Failed to evaluate submission');
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -333,7 +501,7 @@ const ChallengePage = () => {
                       Upload your solution including code repository, pitch deck, and demo video
                     </p>
                     
-                    <form className="max-w-md mx-auto">
+                    <form onSubmit={handleSubmit} className="max-w-md mx-auto">
                       <div className="mb-4">
                         <label htmlFor="repo-url" className="block text-sm font-medium text-gray-700 mb-1">
                           GitHub Repository URL (required)
@@ -341,6 +509,7 @@ const ChallengePage = () => {
                         <input
                           type="url"
                           id="repo-url"
+                          name="repo-url"
                           className="w-full border-gray-300 rounded-md shadow-sm focus:ring-secondary-500 focus:border-secondary-500"
                           placeholder="https://github.com/username/repo"
                           required
@@ -373,10 +542,24 @@ const ChallengePage = () => {
                         <p className="mt-1 text-xs text-gray-500">Link to a demo video of your solution (YouTube, Loom, etc.)</p>
                       </div>
                       
-                      <Button type="submit" className="w-full" size="lg">
-                        Submit Solution
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        size="lg"
+                        disabled={isEvaluating}
+                      >
+                        {isEvaluating ? 'Evaluating...' : 'Submit Solution'}
                       </Button>
                     </form>
+
+                    {evaluationResult && (
+                      <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+                        <h3 className="text-lg font-semibold mb-2">Evaluation Results</h3>
+                        <pre className="whitespace-pre-wrap text-sm text-gray-700">
+                          {evaluationResult}
+                        </pre>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

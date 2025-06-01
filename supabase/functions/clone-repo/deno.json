@@ -1,0 +1,5 @@
+{
+  "compilerOptions": {
+    "types": ["https://deno.land/x/deno@v1.37.1/mod.d.ts"]
+  }
+} 

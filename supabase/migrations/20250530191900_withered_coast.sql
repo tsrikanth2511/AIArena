@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS submissions (
   video_url text,
   score integer,
   feedback text,
+  evaluation_result text,
   status text DEFAULT 'Submitted',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
