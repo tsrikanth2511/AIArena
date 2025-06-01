@@ -125,7 +125,7 @@ const ChallengePage = () => {
   );
 
   const isOwner = user?.id === challenge.company.id;
-  const canSubmit = challenge.status === 'Active' && !isOwner;
+  const canSubmit = challenge.status === 'Active' && !isOwner && user?.role === 'individual';
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -313,6 +313,8 @@ const ChallengePage = () => {
                     <p className="text-gray-600 mb-4">
                       {challenge.status === 'Completed' 
                         ? 'This challenge has ended and is no longer accepting submissions.'
+                        : user?.role === 'company'
+                        ? 'Companies cannot submit solutions to challenges.'
                         : isOwner
                         ? 'You cannot submit to your own challenge.'
                         : 'This challenge is not currently accepting submissions.'}
