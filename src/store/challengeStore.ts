@@ -17,7 +17,7 @@ interface ChallengeState {
   fetchChallenges: () => Promise<void>;
   setFilter: (filter: Partial<ChallengeState['filter']>) => void;
   clearFilters: () => void;
-  updateChallengeStatus: (challengeId: string, newStatus: 'Active' | 'Completed' | 'Upcoming') => Promise<void>;
+  updateChallengeStatus: (challengeId: string, newStatus: 'Active' | 'Completed') => Promise<void>;
 }
 
 export const useChallengeStore = create<ChallengeState>((set, get) => ({
@@ -35,7 +35,6 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
   fetchChallenges: async () => {
     set({ isLoading: true, error: null });
     try {
-      // First fetch all challenges
       const { data: challengesData, error } = await supabase
         .from('challenges')
         .select('*')
@@ -54,16 +53,15 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
           return null;
         }
 
-        // Fetch company data using company_id from profiles table
         const { data: companyData, error: companyError } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url, company_details')
           .eq('id', challengeData.company_id)
-          .eq('role', 'company') // Add role filter to ensure we get company profiles
+          .eq('role', 'company')
           .maybeSingle();
 
         if (companyError) {
-          console.error('Error fetching company data:', companyError); // Keep this one for potential errors
+          console.error('Error fetching company data:', companyError);
         }
 
         const deadline = new Date(challengeData.deadline);
@@ -74,13 +72,6 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
           await supabase
             .from('challenges')
             .update({ status: 'Completed' })
-            .eq('id', challengeData.id);
-        } else if (deadline > now && challengeData.status === 'Upcoming' && 
-                  deadline.getTime() - now.getTime() <= 7 * 24 * 60 * 60 * 1000) {
-          newStatus = 'Active';
-          await supabase
-            .from('challenges')
-            .update({ status: 'Active' })
             .eq('id', challengeData.id);
         }
 
@@ -106,7 +97,6 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
         };
       }));
 
-      // Filter out any null values from invalid data
       const validChallenges = updatedChallenges.filter((c): c is NonNullable<typeof c> => c !== null);
 
       set({
@@ -156,26 +146,17 @@ export const useChallengeStore = create<ChallengeState>((set, get) => ({
     const newFilter = { ...get().filter, ...filter };
     set({ filter: newFilter });
     
-    // Apply filters
     const { status, difficulty, searchQuery, tags } = newFilter;
     const filtered = get().challenges.filter(challenge => {
-      // Filter by status
       if (status && challenge.status !== status) return false;
-      
-      // Filter by difficulty
       if (difficulty && challenge.difficulty !== difficulty) return false;
-      
-      // Filter by search query
       if (searchQuery && !challenge.title.toLowerCase().includes(searchQuery.toLowerCase()) && 
           !challenge.description.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
       }
-      
-      // Filter by tags
       if (tags.length > 0 && !tags.some(tag => challenge.tags.includes(tag))) {
         return false;
       }
-      
       return true;
     });
     

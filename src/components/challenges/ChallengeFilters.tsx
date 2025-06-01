@@ -5,7 +5,7 @@ import { useChallengeStore } from '../../store/challengeStore';
 import Badge from '../ui/Badge';
 
 const difficultyOptions = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-const statusOptions = ['Active', 'Upcoming', 'Completed'];
+const statusOptions = ['Active', 'Completed'];
 const tagOptions = [
   'Finance', 'Healthcare', 'NLP', 'Computer Vision', 'Real-time Data',
   'LLM', 'Developer Tools', 'Content Generation', 'Diagnosis'
@@ -20,7 +20,6 @@ const ChallengeFilters = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
 
   useEffect(() => {
-    // Initialize local state from global filter
     setSearchInput(filter.searchQuery);
     setSelectedTags(filter.tags);
     setSelectedDifficulty(filter.difficulty);
@@ -118,7 +117,6 @@ const ChallengeFilters = () => {
           )}
         </div>
 
-        {/* Active filters */}
         {hasActiveFilters && (
           <div className="mt-4 flex flex-wrap gap-2">
             {selectedStatus && (
@@ -157,7 +155,6 @@ const ChallengeFilters = () => {
         )}
       </div>
 
-      {/* Expanded filters */}
       {isFiltersOpen && (
         <div className="border-t border-gray-200 p-4">
           <div className="space-y-6">

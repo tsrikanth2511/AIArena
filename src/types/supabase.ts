@@ -20,7 +20,7 @@ export interface Database {
           difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert'
           tags: string[]
           participants_count: number
-          status: 'Active' | 'Upcoming' | 'Completed'
+          status: 'Active' | 'Completed'
           requirements: string[]
           evaluation_criteria: Json
           created_at: string
@@ -36,7 +36,7 @@ export interface Database {
           difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert'
           tags?: string[]
           participants_count?: number
-          status?: 'Active' | 'Upcoming' | 'Completed'
+          status?: 'Active' | 'Completed'
           requirements?: string[]
           evaluation_criteria?: Json
           created_at?: string
@@ -52,7 +52,7 @@ export interface Database {
           difficulty?: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert'
           tags?: string[]
           participants_count?: number
-          status?: 'Active' | 'Upcoming' | 'Completed'
+          status?: 'Active' | 'Completed'
           requirements?: string[]
           evaluation_criteria?: Json
           created_at?: string
@@ -159,7 +159,7 @@ export interface Database {
     }
     Enums: {
       challenge_difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert'
-      challenge_status: 'Active' | 'Upcoming' | 'Completed'
+      challenge_status: 'Active' | 'Completed'
       user_role: 'individual' | 'company'
     }
   }
