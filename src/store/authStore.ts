@@ -42,11 +42,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        let { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           const userData = {
@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             email: session.user.email!,
             name: profile.full_name || session.user.email!.split('@')[0],
             role: profile.role,
-            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
+            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || '')}`,
             bio: profile.bio || '',
             githubUrl: profile.github_url || '',
             githubUsername: profile.github_username || '',
@@ -78,6 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       set({ isAuthenticated: false, user: null, isLoading: false });
     } catch (error) {
+      console.error('Auth initialization error:', error);
       set({ 
         isAuthenticated: false, 
         user: null, 
@@ -104,7 +105,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .from('profiles')
         .select('*')
         .eq('id', data.session.user.id)
-        .single();
+        .maybeSingle();
 
       if (!profile) throw new Error('Profile not found');
 
@@ -113,7 +114,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         email: data.session.user.email!,
         name: profile.full_name || data.session.user.email!.split('@')[0],
         role: profile.role,
-        avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
+        avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || '')}`,
         bio: profile.bio || '',
         githubUrl: profile.github_url || '',
         githubUsername: profile.github_username || '',
@@ -223,26 +224,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (authError) throw authError;
       if (!authData.user) throw new Error('Failed to create user');
 
-      // Then create the profile
+      // Then create or update the profile using upsert
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert([
-          {
-            id: authData.user.id,
-            full_name: name,
-            email,
-            role: role,
-            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
-            career_score: 0,
-            badges: [],
-            company_details: role === 'company' ? companyDetails : null,
-          },
-        ]);
+        .upsert({
+          id: authData.user.id,
+          full_name: name,
+          email,
+          role: role,
+          avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+          career_score: 0,
+          badges: [],
+          company_details: role === 'company' ? companyDetails : null,
+        }, {
+          onConflict: 'id'
+        });
 
       if (profileError) {
+        console.error('Profile creation error:', profileError);
         // If profile creation fails, clean up the auth user
         await supabase.auth.signOut();
-        throw profileError;
+        throw new Error('Failed to create profile');
       }
 
       const userData = {
@@ -265,8 +267,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null
       });
 
-      return;
     } catch (error: any) {
+      console.error('Registration error:', error);
       set({ 
         error: error.message,
         isLoading: false,
@@ -330,14 +332,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
           full_name: profileData.name,
           bio: profileData.bio,
           github_url: profileData.githubUrl,
           github_username: profileData.githubUsername,
           portfolio_url: profileData.portfolioUrl,
-        })
-        .eq('id', user.id);
+        });
 
       if (updateError) throw updateError;
 
@@ -374,40 +376,32 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
     if (session?.user) {
       try {
-        let { data: profile, error: profileError } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profileError || !profile) {
+        if (!profile) {
           // If no profile exists, create one
-          const { error: insertError } = await supabase
+          const { data: newProfile, error: insertError } = await supabase
             .from('profiles')
-            .insert([
-              {
-                id: session.user.id,
-                full_name: session.user.user_metadata.full_name || session.user.email?.split('@')[0],
-                email: session.user.email,
-                role: session.user.user_metadata.role || 'individual',
-                avatar_url: session.user.user_metadata.avatar_url || `https://ui-avatars.com/api/?name=${session.user.user_metadata.full_name || session.user.email?.split('@')[0]}`,
-                career_score: 0,
-                badges: [],
-                company_details: session.user.user_metadata.role === 'company' ? session.user.user_metadata.companyDetails : null,
-              },
-            ]);
-
-          if (insertError) throw insertError;
-          
-          // Fetch the newly created profile
-          const { data: newProfile, error: newProfileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
+            .upsert({
+              id: session.user.id,
+              full_name: session.user.user_metadata.full_name || session.user.email?.split('@')[0],
+              email: session.user.email,
+              role: session.user.user_metadata.role || 'individual',
+              avatar_url: session.user.user_metadata.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.user_metadata.full_name || session.user.email?.split('@')[0] || '')}`,
+              career_score: 0,
+              badges: [],
+              company_details: session.user.user_metadata.role === 'company' ? session.user.user_metadata.companyDetails : null,
+            }, {
+              onConflict: 'id'
+            })
+            .select()
             .single();
 
-          if (newProfileError || !newProfile) throw newProfileError || new Error('Failed to fetch new profile');
-          
+          if (insertError) throw insertError;
           profile = newProfile;
         }
 
@@ -417,7 +411,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             email: session.user.email!,
             name: profile.full_name || session.user.email!.split('@')[0],
             role: profile.role,
-            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.full_name}`,
+            avatar: profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || '')}`,
             bio: profile.bio || '',
             githubUrl: profile.github_url || '',
             githubUsername: profile.github_username || '',
