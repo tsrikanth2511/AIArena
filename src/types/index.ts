@@ -35,7 +35,7 @@ export interface Challenge {
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
   tags: string[];
   participants: number;
-  status: 'Active' | 'Completed';
+  status: 'Active' | 'Completed' | 'Upcoming';
   requirements: string[];
   evaluationCriteria: EvaluationCriterion[];
 }

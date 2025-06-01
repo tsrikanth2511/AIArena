@@ -5,7 +5,6 @@ import { Calendar, Users, DollarSign, ArrowLeft, GanttChartSquare, Upload, BarCh
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Challenge } from '../types';
-import { useChallengeStore } from '../store/challengeStore';
 import { useAuthStore } from '../store/authStore';
 import { formatDate, getDifficultyColor } from '../lib/utils';
 import { supabase } from '../lib/supabase';
@@ -171,8 +170,7 @@ const ChallengePage = () => {
                   <div className="ml-4">
                     <h4 className="text-lg font-medium text-gray-900">{challenge.company.name}</h4>
                     <Badge
-                      variant={challenge.status === 'Active' ? 'success' : 
-                              challenge.status === 'Upcoming' ? 'warning' : 'default'}
+                      variant={challenge.status === 'Active' ? 'success' : 'default'}
                     >
                       {challenge.status}
                     </Badge>
@@ -315,8 +313,6 @@ const ChallengePage = () => {
                     <p className="text-gray-600 mb-4">
                       {challenge.status === 'Completed' 
                         ? 'This challenge has ended and is no longer accepting submissions.'
-                        : challenge.status === 'Upcoming'
-                        ? 'This challenge has not started yet. Please wait until it becomes active.'
                         : isOwner
                         ? 'You cannot submit to your own challenge.'
                         : 'This challenge is not currently accepting submissions.'}
@@ -391,8 +387,6 @@ const ChallengePage = () => {
                 <p className="text-gray-600 mb-6">
                   {challenge.status === 'Active' 
                     ? 'Leaderboard will be available once the challenge ends' 
-                    : challenge.status === 'Upcoming'
-                    ? 'Leaderboard will be available once the challenge starts and submissions are evaluated'
                     : 'Top builders for this challenge'}
                 </p>
                 

@@ -80,6 +80,7 @@ const CreateChallengePage = () => {
             tags: formData.tags.filter(tag => tag.trim() !== ''),
             requirements: requirementsArray,
             evaluation_criteria: formData.evaluation_criteria.filter(c => c.name && c.description && c.weight >= 0),
+            status: 'Active'
           },
         ])
         .select()
