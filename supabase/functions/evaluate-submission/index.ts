@@ -68,7 +68,7 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are an expert code reviewer. Please evaluate this project against the following requirements and criteria:
+            text: `You are an expert code reviewer. Please evaluate this project against the following requirements and criteria. You MUST respond with ONLY a valid JSON object, no other text or markdown formatting.
 
 Repository: ${repository.name} by ${repository.owner}
 
@@ -81,7 +81,7 @@ ${challenge.evaluationCriteria.map((c: any) => `- ${c.name} (${c.weight}%): ${c.
 Repository Contents:
 ${JSON.stringify(repositoryContents, null, 2)}
 
-Please provide a concise evaluation in the following JSON format:
+IMPORTANT: Respond with ONLY a JSON object in this exact format:
 {
   "summary": "Brief 2-3 sentence summary of the project",
   "scores": {
@@ -92,7 +92,7 @@ Please provide a concise evaluation in the following JSON format:
   "keyImprovements": ["List 2-3 main areas for improvement"]
 }
 
-Important scoring guidelines:
+Scoring guidelines:
 1. Each criterion should be scored based on its weight percentage (e.g., if a criterion has 30% weight, score it out of 30)
 2. The overallScore should be the sum of all individual criterion scores
 3. Keep the evaluation concise and focus on the most important points.`
@@ -126,10 +126,27 @@ Important scoring guidelines:
     try {
       let responseText = data.candidates[0].content.parts[0].text;
       
-      // Clean up markdown formatting if present
+      // Clean up any potential markdown or extra text
       responseText = responseText.replace(/```json\n?|\n?```/g, '').trim();
       
+      // Find the first { and last } to extract just the JSON object
+      const firstBrace = responseText.indexOf('{');
+      const lastBrace = responseText.lastIndexOf('}');
+      
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error('No JSON object found in response');
+      }
+      
+      responseText = responseText.slice(firstBrace, lastBrace + 1);
+      
       const evaluation = JSON.parse(responseText);
+      
+      // Validate the evaluation object structure
+      if (!evaluation.summary || !evaluation.scores || !evaluation.overallScore || 
+          !evaluation.keyStrengths || !evaluation.keyImprovements) {
+        throw new Error('Invalid evaluation object structure');
+      }
+      
       return new Response(
         JSON.stringify({ 
           success: true,
@@ -143,7 +160,7 @@ Important scoring guidelines:
     } catch (error) {
       console.error('Failed to parse evaluation JSON:', error)
       console.error('Raw response:', data.candidates[0].content.parts[0].text)
-      throw new Error('Invalid evaluation format from Gemini API')
+      throw new Error(`Invalid evaluation format from Gemini API: ${error.message}`)
     }
   } catch (error) {
     console.error('Error in evaluate-submission function:', error)
