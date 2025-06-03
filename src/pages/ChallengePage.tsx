@@ -11,6 +11,16 @@ import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { Octokit } from '@octokit/rest';
 
+interface EvaluationResult {
+  summary: string;
+  scores: {
+    [key: string]: number;
+  };
+  overallScore: number;
+  keyStrengths: string[];
+  keyImprovements: string[];
+}
+
 const ChallengePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -19,7 +29,7 @@ const ChallengePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
+  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
 
   useEffect(() => {
     const fetchChallenge = async () => {
@@ -106,50 +116,12 @@ const ChallengePage = () => {
       }
       console.log('Repository cloned to storage:', cloneData);
 
-      // Get the repository contents from storage
-      const { data: files, error: listError } = await supabase
-        .storage
-        .from('repositories')
-        .list(folderName);
-
-      if (listError) throw listError;
-
-      // Function to read file contents from storage
-      const readFileContents = async (path: string) => {
-        const { data, error } = await supabase
-          .storage
-          .from('repositories')
-          .download(path);
-
-        if (error) {
-          console.warn(`Could not read file ${path}:`, error);
-          return null;
-        }
-
-        return await data.text();
-      };
-
-      // Process all files
-      const repositoryContents = await Promise.all(
-        files.map(async (file) => {
-          const content = await readFileContents(`${folderName}/${file.name}`);
-          return {
-            type: 'file',
-            name: file.name,
-            path: file.name,
-            content
-          };
-        })
-      );
-
-      console.log('Repository Contents:', repositoryContents);
-
       // Prepare evaluation data
-      const evaluationData = {
+      const evaluationRequest = {
         repository: {
           name: repo,
           owner: owner,
-          contents: repositoryContents.filter(Boolean),
+          folderName: folderName
         },
         challenge: {
           requirements: challenge.requirements,
@@ -157,46 +129,17 @@ const ChallengePage = () => {
         }
       };
 
-      console.log('Sending to Groq API:', {
-        url: 'https://api.groq.com/openai/v1/chat/completions',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: evaluationData
+      // Send to Edge Function for evaluation
+      const { data: evaluationResponse, error: evaluationError } = await supabase.functions.invoke('evaluate-submission', {
+        body: evaluationRequest
       });
 
-      // Send to Groq for evaluation
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an expert code reviewer. Evaluate the project against the requirements and criteria. 
-              Provide a detailed analysis with scores for each criterion.`
-            },
-            {
-              role: 'user',
-              content: JSON.stringify(evaluationData)
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 2000,
-        }),
-      });
+      if (evaluationError) {
+        console.error('Evaluation error:', evaluationError);
+        throw new Error(evaluationError.message);
+      }
 
-      const data = await response.json();
-      console.log('Groq API Response:', data);
-
-      // Clean up: Delete the cloned repository
-      
-      return data.choices[0].message.content;
+      return evaluationResponse.evaluation;
     } catch (error) {
       console.error('Detailed error in evaluateSubmission:', error);
       throw error;
@@ -555,9 +498,55 @@ const ChallengePage = () => {
                     {evaluationResult && (
                       <div className="mt-8 p-4 bg-gray-50 rounded-lg">
                         <h3 className="text-lg font-semibold mb-2">Evaluation Results</h3>
-                        <pre className="whitespace-pre-wrap text-sm text-gray-700">
-                          {evaluationResult}
-                        </pre>
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-medium text-gray-900">Summary</h4>
+                            <p className="text-gray-700">{evaluationResult.summary}</p>
+                          </div>
+                          
+                          <div>
+                            <h4 className="font-medium text-gray-900">Scores</h4>
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                              {Object.entries(evaluationResult.scores).map(([criterion, score]) => {
+                                let denominator = 20; // Default denominator
+                                if (criterion === 'BadgingRecognition') {
+                                  denominator = 20; // Special case for BadgingRecognition
+                                }
+                                return (
+                                  <div key={criterion} className="bg-white p-3 rounded shadow-sm">
+                                    <div className="text-sm text-gray-600">{criterion}</div>
+                                    <div className="text-lg font-semibold text-primary-600">{score}/{denominator}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium text-gray-900">Overall Score</h4>
+                            <div className="text-2xl font-bold text-primary-600 mt-1">
+                              {evaluationResult.overallScore}/100
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium text-gray-900">Key Strengths</h4>
+                            <ul className="list-disc list-inside mt-2 space-y-1">
+                              {evaluationResult.keyStrengths.map((strength: string, index: number) => (
+                                <li key={index} className="text-gray-700">{strength}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium text-gray-900">Areas for Improvement</h4>
+                            <ul className="list-disc list-inside mt-2 space-y-1">
+                              {evaluationResult.keyImprovements.map((improvement: string, index: number) => (
+                                <li key={index} className="text-gray-700">{improvement}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </>

@@ -39,7 +39,7 @@ serve(async (req) => {
     const { repoUrl, folderName } = await req.json()
     
     // Get GitHub token from environment variable
-    const githubToken = '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'
+    const githubToken = ''
     if (!githubToken) {
       throw new Error('GitHub token is not configured in the Edge Function environment')
     }
@@ -53,39 +53,39 @@ serve(async (req) => {
 
     // Initialize Supabase client
     const supabaseClient = createClient(
-      'https://khpmjytlairrpnadzhqs.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocG1qeXRsYWlycnBuYWR6aHFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0Njk1NDI4MywiZXhwIjoyMDYyNTMwMjgzfQ.HS8N83GbE2f7mzXLjvOzSu5o6j3ocNOUYUnogcA8mKA'
+      '',
+      ''
     )
 
-    // Get repository contents
-    const contentsUrl = `https://api.github.com/repos/${owner}/${repo}/contents`
-    console.log('Fetching repository contents:', contentsUrl)
-    
-    const response = await fetch(contentsUrl, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'Authorization': `Bearer ${githubToken}`,
-        'User-Agent': 'Supabase-Edge-Function'
-      }
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('GitHub API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        response: errorText
+    // Function to recursively get repository contents
+    const getRepoContents = async (path: string = ''): Promise<any[]> => {
+      const contentsUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
+      console.log('Fetching contents from:', contentsUrl)
+      
+      const response = await fetch(contentsUrl, {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'Authorization': `Bearer ${githubToken}`,
+          'User-Agent': 'Supabase-Edge-Function'
+        }
       })
-      throw new Error(`Failed to fetch repository: ${response.statusText}`)
-    }
 
-    const contents = await response.json()
-    const relevantFiles: { path: string; content: string; priority: number }[] = []
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('GitHub API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: contentsUrl,
+          response: errorText
+        })
+        throw new Error(`Failed to fetch repository contents: ${response.statusText}`)
+      }
 
-    // Process files recursively
-    const processContents = async (items: any[], currentPath: string = '') => {
-      for (const item of items) {
-        const fullPath = currentPath ? `${currentPath}/${item.name}` : item.name
+      const contents = await response.json()
+      const results: any[] = []
+
+      for (const item of contents) {
+        const fullPath = path ? `${path}/${item.name}` : item.name
 
         // Skip if matches skip patterns
         if (SKIP_PATTERNS.some(pattern => 
@@ -123,38 +123,36 @@ serve(async (req) => {
             if (!fileResponse.ok) continue
 
             const content = await fileResponse.text()
-            relevantFiles.push({ path: fullPath, content, priority })
+            results.push({
+              type: 'file',
+              path: fullPath,
+              name: item.name,
+              content,
+              priority
+            })
           } catch (error) {
             console.warn(`Failed to fetch file ${fullPath}:`, error)
           }
         } else if (item.type === 'dir') {
-          const dirResponse = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/contents/${fullPath}`,
-            {
-              headers: {
-                'Accept': 'application/vnd.github.v3+json',
-                'Authorization': `Bearer ${githubToken}`,
-                'User-Agent': 'Supabase-Edge-Function'
-              }
-            }
-          )
-          
-          if (dirResponse.ok) {
-            const dirContents = await dirResponse.json()
-            await processContents(dirContents, fullPath)
-          }
+          // Recursively get contents of subdirectory
+          const subContents = await getRepoContents(fullPath)
+          results.push(...subContents)
         }
       }
+
+      return results
     }
 
-    await processContents(contents)
+    // Get all repository contents
+    const repositoryContents = await getRepoContents()
+    console.log(`Found ${repositoryContents.length} files in repository`)
 
     // Sort files by priority and limit total size
-    relevantFiles.sort((a, b) => b.priority - a.priority)
+    repositoryContents.sort((a, b) => b.priority - a.priority)
     
     let totalSize = 0
     const MAX_SIZE = 500000 // 500KB total limit
-    const selectedFiles = relevantFiles.filter(file => {
+    const selectedFiles = repositoryContents.filter(file => {
       const fileSize = new TextEncoder().encode(file.content).length
       if (totalSize + fileSize <= MAX_SIZE) {
         totalSize += fileSize
@@ -165,11 +163,26 @@ serve(async (req) => {
 
     // Upload selected files to Supabase storage
     for (const file of selectedFiles) {
-      const storagePath = `${folderName}/${file.path}`
+      // Create a flat structure by encoding the path in the filename
+      const safePath = file.path.replace(/\//g, '_')
+      const storagePath = `${folderName}/${safePath}`
+      console.log('Uploading file:', storagePath)
+      
       const content = new TextEncoder().encode(file.content)
-      await supabaseClient.storage
+      const { error: uploadError } = await supabaseClient.storage
         .from('repositories')
-        .upload(storagePath, content)
+        .upload(storagePath, content, {
+          contentType: 'text/plain',
+          upsert: true,
+          metadata: {
+            originalPath: file.path,
+            originalName: file.name
+          }
+        })
+
+      if (uploadError) {
+        console.error('Error uploading file:', storagePath, uploadError)
+      }
     }
     
     return new Response(
