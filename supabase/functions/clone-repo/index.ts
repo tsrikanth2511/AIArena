@@ -39,23 +39,23 @@ serve(async (req) => {
     const { repoUrl, folderName } = await req.json()
     
     // Get GitHub token from environment variable
-    const githubToken = ''
+    const githubToken = Deno.env.get('GITHUB_TOKEN')
     if (!githubToken) {
-      throw new Error('GitHub token is not configured in the Edge Function environment')
+      throw new Error('GITHUB_TOKEN is not configured in the Edge Function environment')
     }
-    
+
+    // Create Supabase client using environment variables
+    const supabaseClient = createClient(
+      Deno.env.get('PROJECT_URL') ?? '',
+      Deno.env.get('PROJECT_ANON_KEY') ?? ''
+    )
+
     // Extract owner and repo from GitHub URL
     const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/)
     if (!match) {
-      throw new Error('Invalid GitHub repository URL')
+      throw new Error('Invalid GitHub URL')
     }
     const [, owner, repo] = match
-
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      '',
-      ''
-    )
 
     // Function to recursively get repository contents
     const getRepoContents = async (path: string = ''): Promise<any[]> => {

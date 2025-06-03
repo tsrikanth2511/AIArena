@@ -18,14 +18,17 @@ serve(async (req) => {
   try {
     const { repository, challenge } = await req.json()
     
-    // Get Gemini API key from environment variable
-    const geminiApiKey = 'AIzaSyAs248LRx5vA5NKfEkih9HolO7ydHOQWUI'
+    // Get API keys from environment variables
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
     if (!geminiApiKey) {
-      throw new Error('Gemini API key is not configured in the Edge Function environment')
+      throw new Error('GEMINI_API_KEY is not configured in the Edge Function environment')
     }
 
-    // Create Supabase client
-    const supabaseClient = createClient('', '');
+    // Create Supabase client using environment variables
+    const supabaseClient = createClient(
+      Deno.env.get('PROJECT_URL') ?? '',
+      Deno.env.get('PROJECT_ANON_KEY') ?? ''
+    )
 
     // List all files in the repository folder
     const { data: files, error: listError } = await supabaseClient.storage
@@ -82,18 +85,17 @@ Please provide a concise evaluation in the following JSON format:
 {
   "summary": "Brief 2-3 sentence summary of the project",
   "scores": {
-    "SoloChallengesCatalogue": number,
-    "UserOnboarding": number,
-    "SubmissionPipeline": number,
-    "HybridLeaderboard": number,
-    "BadgingRecognition": number
+    ${challenge.evaluationCriteria.map((c: any) => `"${c.name}": number`).join(',\n    ')}
   },
   "overallScore": number,
   "keyStrengths": ["List 2-3 main strengths"],
   "keyImprovements": ["List 2-3 main areas for improvement"]
 }
 
-Keep the evaluation concise and focus on the most important points.`
+Important scoring guidelines:
+1. Each criterion should be scored based on its weight percentage (e.g., if a criterion has 30% weight, score it out of 30)
+2. The overallScore should be the sum of all individual criterion scores
+3. Keep the evaluation concise and focus on the most important points.`
           }]
         }],
         generationConfig: {
