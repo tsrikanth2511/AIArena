@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, Users, DollarSign, ArrowLeft, GanttChartSquare, Upload, BarChart } from 'lucide-react';
+import { Calendar, Users, DollarSign, ArrowLeft, GanttChartSquare, Upload, BarChart, GitBranch, Brain, FileText } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Challenge } from '../types';
@@ -21,6 +21,8 @@ interface EvaluationResult {
   keyImprovements: string[];
 }
 
+type EvaluationStage = 'idle' | 'processing' | 'analyzing' | 'preparing';
+
 const ChallengePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -30,6 +32,7 @@ const ChallengePage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
+  const [evaluationStage, setEvaluationStage] = useState<EvaluationStage>('idle');
 
   useEffect(() => {
     const fetchChallenge = async () => {
@@ -155,12 +158,31 @@ const ChallengePage = () => {
     e.preventDefault();
     setIsEvaluating(true);
     setEvaluationResult(null);
+    setEvaluationStage('processing');
 
     try {
       const formData = new FormData(e.currentTarget);
       const repoUrl = formData.get('repo-url') as string;
       
+      // Stage 1: Processing Repository
+      setEvaluationStage('processing');
+      const cloneResponse = await supabase.functions.invoke('clone-repo', {
+        body: { 
+          repoUrl,
+          folderName: `submissions/${user?.id}/${challenge.id}/${Date.now()}`
+        }
+      });
+
+      if (cloneResponse.error) {
+        throw new Error(cloneResponse.error.message);
+      }
+
+      // Stage 2: Analyzing Repository
+      setEvaluationStage('analyzing');
       const evaluation = await evaluateSubmission(repoUrl);
+      
+      // Stage 3: Preparing Report
+      setEvaluationStage('preparing');
       setEvaluationResult(evaluation);
       
       // Save submission to database
@@ -183,6 +205,35 @@ const ChallengePage = () => {
       toast.error('Failed to evaluate submission');
     } finally {
       setIsEvaluating(false);
+      setEvaluationStage('idle');
+    }
+  };
+
+  const getEvaluationStageContent = () => {
+    switch (evaluationStage) {
+      case 'processing':
+        return (
+          <div className="flex items-center space-x-2 text-primary-600">
+            <GitBranch className="animate-spin\" size={20} />
+            <span>Processing repository...</span>
+          </div>
+        );
+      case 'analyzing':
+        return (
+          <div className="flex items-center space-x-2 text-secondary-600">
+            <Brain className="animate-pulse" size={20} />
+            <span>Analyzing code...</span>
+          </div>
+        );
+      case 'preparing':
+        return (
+          <div className="flex items-center space-x-2 text-accent-600">
+            <FileText className="animate-bounce" size={20} />
+            <span>Preparing evaluation report...</span>
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
@@ -228,7 +279,6 @@ const ChallengePage = () => {
   const isOwner = user?.id === challenge.company.id;
   const canSubmit = challenge.status === 'Active' && !isOwner && user?.role === 'individual';
 
-  // Define tabs based on user role
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <GanttChartSquare size={16} /> },
     ...(user?.role === 'individual' ? [
@@ -244,7 +294,6 @@ const ChallengePage = () => {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="max-w-4xl mx-auto">
-        {/* Back button */}
         <Link
           to={isOwner ? "/company/dashboard" : "/challenges"}
           className="inline-flex items-center text-sm text-gray-600 hover:text-secondary-600 mb-6"
@@ -253,7 +302,6 @@ const ChallengePage = () => {
           Back to {isOwner ? "Dashboard" : "Challenges"}
         </Link>
         
-        {/* Edit button for owner */}
         {isOwner && (
           <div className="flex justify-end mb-4">
             <Link to={`/company/challenges/edit/${challenge.id}`}>
@@ -264,7 +312,6 @@ const ChallengePage = () => {
           </div>
         )}
         
-        {/* Challenge header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -311,7 +358,6 @@ const ChallengePage = () => {
               </div>
             </div>
             
-            {/* Challenge metadata */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
               <div className="flex items-center">
                 <Calendar size={20} className="mr-2 text-gray-400" />
@@ -351,7 +397,6 @@ const ChallengePage = () => {
           </div>
         </motion.div>
         
-        {/* Tabs navigation */}
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8">
             {tabs.map((tab) => (
@@ -372,7 +417,6 @@ const ChallengePage = () => {
           </nav>
         </div>
         
-        {/* Tab content */}
         <motion.div
           key={activeTab}
           initial={{ opacity: 0 }}
@@ -484,10 +528,46 @@ const ChallengePage = () => {
                         />
                         <p className="mt-1 text-xs text-gray-500">Link to a demo video of your solution (YouTube, Loom, etc.)</p>
                       </div>
+
+                      {evaluationStage !== 'idle' && (
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                          <div className="space-y-4">
+                            <div className={`transition-opacity ${evaluationStage === 'processing' ? 'opacity-100' : 'opacity-50'}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">Processing Repository</span>
+                                {evaluationStage === 'processing' && getEvaluationStageContent()}
+                              </div>
+                              <div className="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div className={`h-2 bg-primary-600 rounded-full ${evaluationStage === 'processing' ? 'animate-pulse w-full' : evaluationStage === 'analyzing' || evaluationStage === 'preparing' ? 'w-full' : 'w-0'}`}></div>
+                              </div>
+                            </div>
+
+                            <div className={`transition-opacity ${evaluationStage === 'analyzing' ? 'opacity-100' : evaluationStage === 'preparing' ? 'opacity-100' : 'opacity-50'}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">Analyzing Code</span>
+                                {evaluationStage === 'analyzing' && getEvaluationStageContent()}
+                              </div>
+                              <div className="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div className={`h-2 bg-secondary-600 rounded-full ${evaluationStage === 'analyzing' ? 'animate-pulse w-full' : evaluationStage === 'preparing' ? 'w-full' : 'w-0'}`}></div>
+                              </div>
+                            </div>
+
+                            <div className={`transition-opacity ${evaluationStage === 'preparing' ? 'opacity-100' : 'opacity-50'}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">Preparing Report</span>
+                                {evaluationStage === 'preparing' && getEvaluationStageContent()}
+                              </div>
+                              <div className="mt-2 h-2 bg-gray-200 rounded-full">
+                                <div className={`h-2 bg-accent-600 rounded-full ${evaluationStage === 'preparing' ? 'animate-pulse w-full' : 'w-0'}`}></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       
                       <Button 
                         type="submit" 
-                        className="w-full" 
+                        className="w-full mt-6" 
                         size="lg"
                         disabled={isEvaluating}
                       >
@@ -508,9 +588,9 @@ const ChallengePage = () => {
                             <h4 className="font-medium text-gray-900">Scores</h4>
                             <div className="grid grid-cols-2 gap-4 mt-2">
                               {Object.entries(evaluationResult.scores).map(([criterion, score]) => {
-                                let denominator = 20; // Default denominator
+                                let denominator = 20;
                                 if (criterion === 'BadgingRecognition') {
-                                  denominator = 20; // Special case for BadgingRecognition
+                                  denominator = 20;
                                 }
                                 return (
                                   <div key={criterion} className="bg-white p-3 rounded shadow-sm">
@@ -592,7 +672,6 @@ const ChallengePage = () => {
                       </div>
                     </div>
                     
-                    {/* 2nd and 3rd place in smaller cards */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                         <div className="flex items-center">
@@ -651,7 +730,6 @@ const ChallengePage = () => {
           )}
         </motion.div>
         
-        {/* Call-to-action buttons */}
         {canSubmit && (
           <div className="mt-8 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             <Button
