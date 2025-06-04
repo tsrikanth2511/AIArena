@@ -91,7 +91,7 @@ const ChallengePage = () => {
     fetchChallenge();
   }, [id]);
 
-  const evaluateSubmission = async (repoUrl: string) => {
+  const evaluateSubmission = async (repoUrl: string, folderName: string) => {
     if (!challenge) throw new Error('Challenge not found');
     
     try {
@@ -101,23 +101,6 @@ const ChallengePage = () => {
       const [, owner, repo] = match;
 
       console.log('GitHub Repository Info:', { owner, repo });
-
-      // Create a unique folder name for this submission
-      const folderName = `submissions/${user?.id}/${challenge.id}/${Date.now()}`;
-      
-      // Clone the repository to Supabase storage
-      const { data: cloneData, error: cloneError } = await supabase.functions.invoke('clone-repo', {
-        body: { 
-          repoUrl,
-          folderName
-        }
-      });
-
-      if (cloneError) {
-        console.error('Clone error:', cloneError);
-        throw new Error(cloneError.message);
-      }
-      console.log('Repository cloned to storage:', cloneData);
 
       // Prepare evaluation data
       const evaluationRequest = {
@@ -164,12 +147,15 @@ const ChallengePage = () => {
       const formData = new FormData(e.currentTarget);
       const repoUrl = formData.get('repo-url') as string;
       
+      // Create a unique folder name for this submission
+      const folderName = `submissions/${user?.id}/${challenge.id}/${Date.now()}`;
+      
       // Stage 1: Processing Repository
       setEvaluationStage('processing');
       const cloneResponse = await supabase.functions.invoke('clone-repo', {
         body: { 
           repoUrl,
-          folderName: `submissions/${user?.id}/${challenge.id}/${Date.now()}`
+          folderName
         }
       });
 
@@ -179,7 +165,7 @@ const ChallengePage = () => {
 
       // Stage 2: Analyzing Repository
       setEvaluationStage('analyzing');
-      const evaluation = await evaluateSubmission(repoUrl);
+      const evaluation = await evaluateSubmission(repoUrl, folderName);
       
       // Stage 3: Preparing Report
       setEvaluationStage('preparing');
